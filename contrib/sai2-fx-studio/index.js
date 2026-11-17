@@ -30,28 +30,86 @@ function apply(ctx, config) {
   let lastPreview = null // 上一次预览结果（应用时用）
   let windowOpen = false
 
-  // ---- 配置：套件路径与注入器 ----
+  // ---- 配置：默认使用随包附带的上游套件，也允许换成自定义目录 ----
+  const BUNDLED_SUITE = path.join(__dirname, 'vendor', 'sai2-plugin-suite')
+  let injecting = null
+
   function suiteDir() {
-    return String(config.suiteDir || '').trim()
+    const configured = String(config.suiteDir || '').trim()
+    if (!configured) return BUNDLED_SUITE
+    return path.isAbsolute(configured) ? configured : path.resolve(__dirname, configured)
+  }
+  function isBundled() {
+    return path.resolve(suiteDir()) === path.resolve(BUNDLED_SUITE)
   }
   function injectorExe() {
-    const d = suiteDir()
-    if (!d) return ''
-    // 上游套件里注入器叫 sai2_injector.exe
-    return path.join(d, 'sai2_injector.exe')
+    return path.join(suiteDir(), 'sai2_injector.exe')
+  }
+  function whitelistBat() {
+    return path.join(suiteDir(), '添加白名单.bat')
   }
   function checkSuite() {
     const dir = suiteDir()
-    if (!dir) {
-      ctx.setStatus('未配置插件套件目录', 'warn')
+    const exe = injectorExe()
+    const dll = path.join(dir, 'sai2_agent.dll')
+    if (!fs.existsSync(exe) || !fs.existsSync(dll)) {
+      ctx.setStatus(isBundled() ? '内置套件文件缺失，请重新安装插件' : '套件目录缺少注入器，请重新选择', 'error')
       return false
     }
-    if (!fs.existsSync(dir)) {
-      ctx.setStatus('套件目录不存在，请重新选择', 'error')
-      return false
-    }
-    ctx.setStatus('FX Studio 就绪', 'ok')
+    ctx.setStatus(isBundled() ? '内置套件就绪（v1.64.0）' : '自定义套件就绪', 'ok')
     return true
+  }
+
+  /**
+   * 确保注入器在线：先 ping；离线则运行随包注入器，再短轮询等待管道。
+   * 并发调用共用同一个 Promise，避免连点「连接注入」启动多个注入器。
+   */
+  function ensureInjected(force = false) {
+    if (injecting) return injecting
+    injecting = (async () => {
+      if (!force) {
+        try {
+          const p = await agent.ping({ budgetMs: 400 })
+          if (p.ok) return { ok: true, already: true }
+        } catch { /* 离线，继续注入 */ }
+      }
+      if (!checkSuite()) return { ok: false, error: '套件不可用' }
+      const r = await desktop.runInjector(injectorExe(), 'inject')
+      if (!r.ok) {
+        ctx.setStatus('自动注入失败：' + r.error, 'warn')
+        return r
+      }
+      for (let i = 0; i < 16; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        try {
+          const p = await agent.ping({ budgetMs: 300 })
+          if (p.ok) {
+            ctx.setStatus('已自动连接注入器', 'ok')
+            return { ok: true }
+          }
+        } catch { /* 管道还没起来 */ }
+      }
+      ctx.setStatus('注入器已启动但未连接，请检查白名单与权限', 'warn')
+      return { ok: true, pending: true }
+    })().finally(() => { injecting = null })
+    return injecting
+  }
+
+  async function addWhitelist() {
+    if (!checkSuite()) return false
+    const bat = whitelistBat()
+    if (!fs.existsSync(bat)) {
+      ctx.setStatus('随包未找到「添加白名单.bat」', 'warn')
+      return false
+    }
+    try {
+      const ok = await desktop.runElevated(bat, suiteDir())
+      ctx.setStatus(ok ? '白名单脚本已运行（请重新注入）' : '白名单脚本未确认完成', ok ? 'ok' : 'warn')
+      return ok
+    } catch (err) {
+      ctx.setStatus('运行白名单脚本取消或失败：' + err.message, 'warn')
+      return false
+    }
   }
 
   // ---- agent 通信 ----
@@ -63,7 +121,7 @@ function apply(ctx, config) {
       const r = await agent.queryLayers(agentOpts(1200))
       const layers = r.ok ? r.rows : []
       post({ type: 'layers', ok: r.ok, layers })
-      if (!r.ok) ctx.setStatus('未连接注入器（请先注入 SAI2）', 'warn')
+      if (!r.ok) ctx.setStatus('未连接注入器（点「连接注入」或检查白名单）', 'warn')
       else ctx.setStatus('FX Studio 就绪', 'ok')
       return layers
     } catch (err) {
@@ -276,7 +334,11 @@ function apply(ctx, config) {
     if (!r.ok) { ctx.dialog.error('打开浮窗失败：' + r.error); return }
     windowOpen = true
     checkSuite()
-    void refreshLayers()
+    if (config.autoInject !== false) {
+      void ensureInjected().then(() => refreshLayers())
+    } else {
+      void refreshLayers()
+    }
     if (file) toast('已选择文件：' + file + '（请在 SAI2 中打开后抓取）')
   }
 
@@ -288,6 +350,8 @@ function apply(ctx, config) {
         windowOpen = false
         break
       case 'refreshLayers': void refreshLayers(); break
+      case 'inject': void ensureInjected(true).then(() => refreshLayers()); break
+      case 'whitelist': void addWhitelist(); break
       case 'grab': void grab(); break
       case 'selectLayer': void selectLayer(message); break
       case 'preview': void preview(message); break

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const require = createRequire(import.meta.url)
@@ -48,6 +48,13 @@ describe('FX Studio 插件装配', () => {
     }
   })
 
+  it('默认指向随包套件并默认自动注入', () => {
+    expect(plugin.configSchema.suiteDir.default).toBe('vendor/sai2-plugin-suite')
+    expect(plugin.configSchema.autoInject.default).toBe(true)
+    expect(existsSync(resolve(PLUGIN_DIR, 'vendor/sai2-plugin-suite/sai2_injector.exe'))).toBe(true)
+    expect(existsSync(resolve(PLUGIN_DIR, 'vendor/sai2-plugin-suite/sai2_agent.dll'))).toBe(true)
+  })
+
   it('apply 注册工具栏 + 右键动作并上报状态', () => {
     const { ctx, out } = fakeCtx()
     plugin.apply(ctx, ctx.config)
@@ -58,10 +65,11 @@ describe('FX Studio 插件装配', () => {
     expect(out.statuses.length).toBeGreaterThan(0)
   })
 
-  it('未配置套件时状态为 warn', () => {
+  it('空配置也能找到随包内置套件', () => {
     const { ctx, out } = fakeCtx()
     plugin.apply(ctx, ctx.config)
-    expect(out.statuses.some((s) => s.level === 'warn')).toBe(true)
+    expect(out.statuses.some((s) => s.level === 'ok' && s.text.includes('内置套件就绪'))).toBe(true)
+    expect(out.statuses.some((s) => s.level === 'warn')).toBe(false)
   })
 
   it('工具栏动作能打开浮窗（声明了 window 能力）', () => {

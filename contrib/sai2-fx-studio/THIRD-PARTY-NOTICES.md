@@ -18,8 +18,20 @@
 | UI 层 | Win32 GDI 自绘（`tools/bridge/Ui.cpp` 等） | 全部重写为 HTML/CSS 独立玻璃浮窗（见 `ui/`），未使用上游任何绘制代码 | **完全重写** |
 | 核心引擎 | C++ `BridgeCore`（`tools/bridge/BridgeCore.*`） | 全部重写为 JS（`core/session.js`、`core/image.js`），会话/撤销/预览/流程自研 | **完全重写** |
 | 算法层 | C++ 头文件 kernel | 逐条移植算法逻辑到 JS（见下），未使用上游编译产物 | **移植** |
-| 注入层 | `sai2_agent.dll` + `sai2_injector.exe`（C++/IAT hook） | **未修改、未分发**。由用户自行从上游 Releases 下载安装；本插件仅通过公开命名管道协议对接 | **原样使用** |
+| 注入层 | `sai2_agent.dll` + `sai2_injector.exe`（C++/IAT hook） | **未修改、原样随插件分发**（`vendor/sai2-plugin-suite/`），打开浮窗默认自动运行注入器；本插件只通过公开命名管道协议对接 | **原样分发，代码未改** |
 | 通信协议 | 单行 JSON 命名管道 `\\.\pipe\sai2agent` | 按上游 `docs/SAI2Injection.md` §4 公开的协议重新实现（`core/agent.js`） | **协议沿用，代码重写** |
+
+### 随包上游套件（v1.64.0）
+
+按用户要求，插件包**直接包含**上游套件，用户无需另外下载：
+
+- 来源：<https://celery-play-game.top/dl/sai2-plugin-suite-1.64.0.zip>（Celery 的 MIT fork，派生自 PainterAnkry/sai2-plugin-suite）
+- 版本：v1.64.0（2026-11-17）
+- 压缩包的 SHA-256：`24acd7214c153540573407ad63a20930d50bfe97af2d5051ef46563aa25edca5`
+- 存放位置：`vendor/sai2-plugin-suite/`，原样解压，**未修改任何上游文件**
+- 元数据与关键二进制校验值见 `vendor/sai2-plugin-suite/SOURCE.json`
+- 随包包含 `sai2_bridge.exe`、`sai2_agent.dll`、`sai2_injector.exe`、`plugins/`、`添加白名单.bat` 等上游原文件
+- 我们不声明这些二进制的所有权；其版权与许可仍归上游作者所有
 
 ### 算法移植来源对照
 
@@ -42,5 +54,5 @@
 
 - 本插件为社区非官方作品，**未经 PainterAnkry 及小红书分享者授权或背书**。
 - "SAI2""PaintTool SAI" 等名称归各自权利人所有。
-- 注入类工具可能触发杀软告警；请自行从上游官方 Releases 获取注入器并自行判断风险。
+- 注入类工具可能触发杀软告警；随包附带的注入器与使用手册均来自上游，请自行判断风险，必要时以管理员运行随包 `添加白名单.bat`。
 - 按 MIT 许可，本软件"按原样"提供，不提供任何明示或暗示担保；使用风险由使用者自行承担。

@@ -140,6 +140,28 @@ Start-Sleep -Milliseconds 60
 Write-Output "OK"
 `
 
+/** 以管理员身份运行随包的 bat（用于「添加白名单.bat」），UAC 由用户确认 */
+const ELEVATE_PS = String.raw`
+param([string]$Path,[string]$WorkDir)
+$ErrorActionPreference='Stop'
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = 'cmd.exe'
+$psi.Arguments = '/c "' + $Path + '"'
+$psi.WorkingDirectory = $WorkDir
+$psi.Verb = 'RunAs'
+$psi.UseShellExecute = $true
+$p = [System.Diagnostics.Process]::Start($psi)
+$p.WaitForExit()
+Write-Output "OK"
+`
+
+/** 以管理员身份运行一个脚本；返回是否启动成功 */
+async function runElevated(target, cwd, opts = {}) {
+  if (!target || !cwd) return false
+  const out = await run(ELEVATE_PS, [target, cwd], opts)
+  return out.includes('OK')
+}
+
 /** 在屏幕坐标点击一下 */
 async function clickAt(x, y, opts) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return false
@@ -165,6 +187,6 @@ function runInjector(injectorExe, action = 'inject') {
 }
 
 module.exports = {
-  focusSai2, ctrl, grabLayer, pasteBack, clickAt, runInjector, run,
-  KEY_PS, FOCUS_PS, CLICK_PS
+  focusSai2, ctrl, grabLayer, pasteBack, clickAt, runInjector, runElevated, run,
+  KEY_PS, FOCUS_PS, CLICK_PS, ELEVATE_PS
 }

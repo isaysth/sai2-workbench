@@ -15,7 +15,7 @@
 | ① UI 层 | Win32 GDI 自绘（`Ui.cpp` + 4 个功能窗口）                    | **重写**：玻璃质感面板            |
 | ② 核心引擎 | `BridgeCore`（C++，无界面）：抓图→调算法→回贴、参数/预览/撤销/多窗口会话      | **重写**：JS 版编排引擎          |
 | ③ 算法层  | 5 个 C++ DLL（模糊/滤镜/调整/液化/hello，header-only kernel）   | **移植**：C++ 算法 → JS（理由见下） |
-| ④ 注入层  | `sai2_agent.dll`（IAT hook 读图层）+ `sai2_injector.exe` | **原样使用她的二进制**，我们不分发      |
+| ④ 注入层  | `sai2_agent.dll`（IAT hook 读图层）+ `sai2_injector.exe` | **原样随插件分发**（v1.64.0 Celery MIT fork），我们不修改      |
 
 ### 一个必须先讲透的技术死结
 
@@ -67,8 +67,9 @@ JS 主进程**无法直接调用 C++ 虚表 DLL**。有两条路：
   （和主程序 zip 并列），**不进工作台发布包**。
 - **导入方式**：用户解压到工作台的 `plugins/` 目录（便携模式在程序同级，  
   回退模式在 `%APPDATA%/sai2-workbench/plugins/`），重启后在插件中心看到它。
-- **她的套件由用户自己下载**：插件配置里有一个 `path` 字段指向她的套件目录，  
-  插件用它定位 `sai2_injector.exe`（注入按钮）与 `agent.dll`。我们的包里**不含她的二进制**。
+- **上游套件随插件一起分发**：插件 zip 内含 Celery MIT fork v1.64.0 的原样套件  
+  （`vendor/sai2-plugin-suite/`），用户无需另外下载；配置里的 `suiteDir` 默认指向它，  
+  只有想换版本时才改。
 - 插件 `system: false`（可禁用/可卸载），`inject: []`（不依赖内核服务，自洽）。
 
 插件包目录：
@@ -83,6 +84,8 @@ sai2-fx-studio/
     blur.js  adjust.js  filters.js  liquify.js  image.js
   ui/
     panel.html           # ① 玻璃质感面板（内联 CSS/JS，srcDoc 渲染）
+  vendor/
+    sai2-plugin-suite/   # ④ 上游 MIT 套件 v1.64.0 原样解压，随包分发
   LICENSE-UPSTREAM       # 她的 MIT 原文
   THIRD-PARTY-NOTICES.md # 来源 + 魔改清单（见第五节）
   README.md              # 安装/使用/风险说明
@@ -118,7 +121,7 @@ sai2-fx-studio/
    - UI 层：**完全重写**（Win32 GDI 自绘 → HTML/CSS 玻璃质感），未使用 her `Ui.cpp` 的任何绘制代码；
    - 核心引擎：**完全重写**（C++ `BridgeCore` → JS，会话/撤销/预览/流程自行实现），未使用她的 C++ 核心代码；
    - 算法层：**移植**（C++ 头文件 kernel 的算法逻辑 → JS 实现），列出每个算法的来源文件；
-   - 注入层：**未修改**，由用户自行下载她的 `sai2_agent.dll` / `sai2_injector.exe`，我们不分发、不声明所有权；
+   - 注入层：**未修改、随插件原样分发**（Celery MIT fork v1.64.0 的 `sai2_agent.dll` / `sai2_injector.exe`），不声明所有权，附来源与校验值；
    - 协议：沿用她公开的命名管道 JSON 协议（`docs/SAI2Injection.md`），注明协议出处。
 3. **商标与背书**：明确声明非官方、与上游作者及小红书用户无关联、不提供担保。
 4. 插件 README 首页与面板「关于」页都放这段声明的摘要和链接。
@@ -147,7 +150,8 @@ sai2-fx-studio/
 
 1. ✅ **UI 用独立浮窗**（你已批注）：新增内核受控窗口能力，T7.3a 承担。
 2. ✅ **真机 SAI2 可用**（你已批注）：本机 x64 安装，T7.9 做端到端实测。
-3. ⏳ **算法层一并 JS 化**（路线 A）：本计划默认采用，若你要保留她的 C++ DLL 请告知（需工具链，不推荐）。
-4. ⏳ **她的套件由你自行下载**、插件只填路径：本计划默认采用，若要把二进制打进插件包请告知。
+3. ✅ **算法层一并 JS 化**（路线 A）：已采用，全部算法移植为 JS。
+4. ✅ **上游套件随插件分发**（用户后续明确要求）：已把 Celery MIT fork v1.64.0 原样放入
+   `vendor/sai2-plugin-suite/`，默认自动注入，不再让用户另下载。
 
-以上两项默认按计划执行；如无异议，我按 T7.1 → T7.10 顺序开始实现。这一轮只改了计划文档，未动代码。
+用户已确认「按计划做」，T7.1~T7.10 已实现，交付见 `Sai2FxStudio-delivery.md`。

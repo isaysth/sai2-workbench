@@ -95,4 +95,15 @@ describe('desktop 自动化（mock PowerShell）', () => {
     })
     expect(keys).toEqual(['1E', '2E'])
   })
+
+  it('runElevated 用 RunAs 启动 bat 并传入工作目录', async () => {
+    let got = null
+    const ok = await desktop.runElevated('D:\\fx\\添加白名单.bat', 'D:\\fx', {
+      exec: (script, args, resolve) => { got = { script, args }; resolve('OK\n') }
+    })
+    expect(ok).toBe(true)
+    expect(got.script).toBe(desktop.ELEVATE_PS)
+    expect(got.script).toContain("Verb = 'RunAs'")
+    expect(got.args).toEqual(['D:\\fx\\添加白名单.bat', 'D:\\fx'])
+  })
 })

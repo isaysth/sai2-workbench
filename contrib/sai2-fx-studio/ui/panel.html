@@ -130,6 +130,8 @@
         <div class="hd">
           <span>图层（点选后抓取）</span>
           <button id="btn-refresh">刷新图层</button>
+          <button id="btn-inject">连接注入</button>
+          <button id="btn-whitelist" title="以管理员身份运行随包的添加白名单.bat">加白名单</button>
           <button id="btn-grab">抓取当前图层</button>
         </div>
         <div id="layer-list"><div class="layer-row" style="color:var(--fx-dim)">未连接注入器，点「刷新图层」重试</div></div>
@@ -212,7 +214,8 @@
     if (state.tab === 'about') {
       box.innerHTML = '<h3>关于</h3><div style="color:var(--fx-dim);line-height:1.8;font-size:12px">' +
         'UI 层与核心引擎为原创重写；算法逻辑移植自 MIT 项目 PainterAnkry/sai2-plugin-suite。<br><br>' +
-        '注入器需自行从上游 Releases 下载，本插件不分发其二进制。<br><br>' +
+        '随包附带上游 MIT 套件 v1.64.0（Celery fork），原样分发、未修改；打开浮窗默认自动注入。<br><br>' +
+        '首次使用若被杀软拦截，点「加白名单」以管理员运行随包脚本（UAC 需你确认）。<br><br>' +
         '非官方作品，与上游作者及分享者无背书关系。使用注入类工具请自行评估风险并备份画作。</div>'
       return
     }
@@ -313,6 +316,8 @@
   })
   document.getElementById('btn-close').onclick = function () { send('close') }
   document.getElementById('btn-refresh').onclick = function () { send('refreshLayers') }
+  document.getElementById('btn-inject').onclick = function () { toast('正在连接注入器…'); send('inject') }
+  document.getElementById('btn-whitelist').onclick = function () { toast('请在 UAC 弹窗中确认'); send('whitelist') }
   document.getElementById('btn-grab').onclick = function () { send('grab') }
 
   // 初始化默认效果

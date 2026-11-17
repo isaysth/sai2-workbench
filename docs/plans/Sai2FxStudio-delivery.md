@@ -8,7 +8,7 @@
 | 交付物 | 位置 | 说明 |
 | --- | --- | --- |
 | 独立插件源码 | `contrib/sai2-fx-studio/` | 不在工作台主程序包内 |
-| 可安装插件 zip | `dist/sai2-fx-studio-0.1.0.zip`（36KB） | 用户在插件中心「从 zip 安装」 |
+| 可安装插件 zip | `dist/sai2-fx-studio-0.1.0.zip`（3.05 MB，含上游套件） | 用户在插件中心「从 zip 安装」，安装即用 |
 | 内核浮窗能力 | `src/main/plugins/windows.ts`、`window-factory.ts`、`src/preload/plugin-window.ts` | 通用、受控，仅声明 `capabilities:['window']` 的插件可用 |
 | GitHub Release 附件 | `v0.1.0`：`sai2-workbench-0.1.0-win-x64.zip`（已替换为修复版）+ `sai2-fx-studio-0.1.0.zip` | 已上传并回读确认，与工作台主程序 zip 并列供直接下载 |
 
@@ -19,7 +19,7 @@
 | ① UI | HTML/CSS 玻璃浮窗，四功能页 + 图层列表 + 参数控件 + 预览 canvas | `ui/panel.html` |
 | ② 核心引擎 | RGBA8 图像模型、会话/参数/降采样预览/撤销栈、流程编排 | `core/image.js`、`core/session.js`、`index.js` |
 | ③ 算法 | blur(4)/adjust(5)/filters(10)/liquify(置换场) 全部 JS 移植 | `algorithms/*.js` |
-| ④ 注入层 | **未修改、未分发**；用户自行下载上游套件，插件经命名管道对接 | `core/agent.js`（协议）+ `core/desktop.js`（注入器启动） |
+| ④ 注入层 | **未修改、原样随包分发**（`vendor/sai2-plugin-suite/`，v1.64.0 Celery MIT fork），默认自动注入；插件经命名管道对接 | `core/agent.js`（协议）+ `core/desktop.js`（注入器启动 / 提权白名单） |
 | 剪贴板 | CF_DIBV5 精确编解码（124 头 + 12 掩码 + BGRA，只写 CF_DIBV5） | `core/clipboard.js`、`core/clipboard-win.js` |
 | 桌面自动化 | SendInput 合成 Ctrl+A/C/V、屏幕坐标点击、SAI2 窗口聚焦 | `core/desktop.js` |
 
@@ -33,14 +33,14 @@
 ## 四、验证记录
 
 - **typecheck**：`npm run typecheck` 通过（0 错误）
-- **单测**：89 条全绿（13 个测试文件），其中本插件相关 56 条：
+- **单测**：91 条全绿（13 个测试文件），其中本插件相关 66 条：
   - `plugin-windows.test.ts` 7 条（浮窗注册表、路径越界、消息路由、关闭清理）
   - `plugin-window-init.test.ts` 5 条（preload 从 query / argv 解析 pluginId）
   - `fx-agent.test.ts` 7 条（管道协议、重试、图层解析、菜单推送）
   - `fx-core.test.ts` 8 条（图像模型、PNG 无关、会话/撤销、SAI2 头解析）
   - `fx-algorithms.test.ts` 11 条 + `fx-filters-liquify.test.ts` 10 条（全部算法）
-  - `fx-clipboard-desktop.test.ts` 10 条（DIBV5 往返、只写 CF_DIBV5、SendInput 映射）
-  - `fx-plugin.test.ts` 6 条（清单、configSchema、贡献点、浮窗打开、消息路由）
+  - `fx-clipboard-desktop.test.ts` 11 条（DIBV5 往返、只写 CF_DIBV5、SendInput 映射、提权白名单）
+  - `fx-plugin.test.ts` 7 条（清单、configSchema、随包套件、贡献点、浮窗打开、消息路由）
   - 注：当前环境的默认 worker 池会让 Vitest 5 丢失 runner 上下文，`vitest.config.mts`
     固定为 `pool: 'vmThreads'` 后全部通过。
 - **build**：`npm run build` 通过，`out/preload/plugin-window.js` 正常产出
@@ -51,7 +51,9 @@
   - 通过 CDP 读浮窗确认 `pluginBridge.pluginId === 'sai2-fx-studio'`；从浮窗发
     `{type:'undo'}` 后收到插件回包 `{type:'status', text:'没有可撤销的操作'}`，
     UI → 插件 → UI 双向消息路由已打通。
-- **插件 zip**：17 个条目，顶层单目录 `sai2-fx-studio/`（安装器 `findManifestDir` 可识别）
+  - 随包套件版再次真机回读：`status:"running"`，日志 `sai2-fx-studio 已加载/已启用`
+- **插件 zip**：45 个条目（含 `vendor/sai2-plugin-suite/` 上游套件），顶层单目录 `sai2-fx-studio/`（安装器 `findManifestDir` 可识别）
+- **随包套件校验**：下载 zip 的 SHA-256 与上游页面一致：`24acd721…25edca5`；关键二进制校验值记录在 `vendor/sai2-plugin-suite/SOURCE.json`
 
 ### 踩坑记录（供后续参考）
 
