@@ -1,0 +1,29 @@
+# 第三方声明 / Third-Party Notices
+
+sai2工作台 使用以下开源软件与参考算法。各组件均按其原许可证分发，版权归各自作者所有。
+
+## 运行依赖（随程序打包）
+
+| 组件 | 版本 | 许可证 | 用途 |
+|---|---|---|---|
+| Electron | 45.3.3 | MIT | 跨平台桌面运行时 |
+| React / React DOM | 19.3.1 | MIT | 界面渲染 |
+| Zustand | 5.1.0 | MIT | 前端状态管理 |
+| ag-psd | 34.2.1 | MIT | PSD / PSB 合成图解析与缩略图 |
+| chokidar | 6.0.0 | MIT | 文件夹变化监听（可选实时模式） |
+| yauzl | 3.4.0 | MIT | zip 插件包解压 |
+
+## 参考算法（未打包二进制，仅移植思路）
+
+- **Wunkolo/libsai**（MIT License）—— SAI2 缩略图解码参考了 `ConvertJssfToJpeg` / `ConvertDpcmToBmp` 的算法思路，已用 TypeScript 独立重写，未包含 libsai 的任何二进制代码。
+  - 项目地址：https://github.com/Wunkolo/libsai
+  - 原许可证：MIT License, Copyright (c) Wunkolo
+- **SaiThumbs**（Wunkolo，MIT License）—— Windows 资源管理器外壳扩展，用于让资源管理器也显示 SAI2 缩略图。本程序**不依赖、不打包**它；内置解码已能出图。是否在系统里安装由用户自行决定。
+
+## 构建 / 开发依赖（不进入交付包）
+
+TypeScript、Vite、electron-vite、Vitest、electron-builder 及各类型定义包，均为 MIT 许可证，仅用于构建与测试，不随成品分发。
+
+## 完整许可证文本
+
+上述 MIT 组件的完整许可证文本可在各自上游项目获取；打包产物内 `LICENSE.electron.txt` 与 `LICENSES.chromium.html` 由 electron-builder 自动附带，包含 Electron 与 Chromium 的许可声明。

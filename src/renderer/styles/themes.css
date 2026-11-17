@@ -1,0 +1,277 @@
+/* ==========================================================================
+   外观变量表（v1.14 重构）
+
+   旧版是 acrylic / light / dark 三个平级主题，把「风格」和「配色」焊死在一起，
+   导致"深色玻璃"这种组合根本没法表达。现在拆成三个正交维度，挂在 <html> 上：
+
+     data-theme  = glass | minimal        风格：玻璃（可透）/ 简约（实色）
+     data-scheme = light | dark           明暗：只影响配色，不影响材质
+     data-bg     = solid | image | desktop 背景来源
+
+   文件按这四段组织，改一处只影响一段：
+     ① 布局常量    :root
+     ② 明暗调色板  [data-scheme]                 —— 两个风格共享的文字/强调/描边
+     ③ 风格表面    [data-theme][data-scheme]     —— 面板、内容区、卡片三层的底色
+     ④ 背景层      [data-bg]                     —— 窗口最底下那一层画什么
+
+   对比度约束（开发文档 §3.1）：正文 ≥ 4.5:1，次要文字 ≥ 3:1。
+   ========================================================================== */
+
+:root {
+  --font-ui: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', monospace;
+  --font-size-base: 13px;
+
+  --titlebar-height: 40px;
+  --statusbar-height: 26px;
+  --sidebar-width: 208px;
+  --details-width: 264px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --dur: 0.18s;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* 页面自身永远不铺底：窗口是透明的，底色由 body 的背景层负责 */
+  --bg-app: transparent;
+}
+
+/* ==========================================================================
+   ① 明暗调色板（风格无关）
+   这里只放「跟明暗有关、跟玻璃无关」的东西：文字、强调色、描边、阴影、日志色。
+   ========================================================================== */
+
+:root[data-scheme='light'] {
+  --text-1: #16191d;
+  --text-2: #55606e;
+  --text-3: #808b99;
+  --text-inverse: #ffffff;
+
+  --accent: #2f6bed;
+  --accent-hover: #2559cc;
+  --accent-soft: rgba(47, 107, 237, 0.12);
+  --on-accent: #ffffff;
+
+  --border: rgba(15, 23, 42, 0.09);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --divider: rgba(15, 23, 42, 0.07);
+
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-2: 0 10px 28px rgba(15, 23, 42, 0.12);
+
+  --bg-hover: rgba(15, 23, 42, 0.05);
+  --bg-active: rgba(47, 107, 237, 0.12);
+  --bg-track: rgba(15, 23, 42, 0.08);
+
+  --log-debug: #7a8494;
+  --log-info: #2f6bed;
+  --log-warn: #b1651a;
+  --log-error: #c02a2a;
+}
+
+:root[data-scheme='dark'] {
+  --text-1: #eef2f7;
+  --text-2: #a7b2c1;
+  --text-3: #8b95a3;
+  --text-inverse: #16191e;
+
+  --accent: #5b8cff;
+  --accent-hover: #7aa2ff;
+  --accent-soft: rgba(91, 140, 255, 0.16);
+  --on-accent: #0f1216;
+
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.17);
+  --divider: rgba(255, 255, 255, 0.07);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 12px 32px rgba(0, 0, 0, 0.42);
+
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(91, 140, 255, 0.16);
+  --bg-track: rgba(255, 255, 255, 0.1);
+
+  --log-debug: #7f8b99;
+  --log-info: #7aa2ff;
+  --log-warn: #e0a458;
+  --log-error: #ff6b6b;
+}
+
+/* ==========================================================================
+   ② 玻璃风格
+   三层白底全部是 --glass-alpha 的**纯乘法**（没有加偏移常数）。
+   这条是硬约束：不透明度拖到 0 时三层必须同时归零，界面上只剩文字和描边。
+   早期用 `0.06 + α*0.70` 这种带偏移的公式，滑块拉到底还剩 9.5% 白，永远透不干净。
+   ========================================================================== */
+
+:root[data-theme='glass'] {
+  /* 三个系数差一档，是为了保留「薄玻璃压厚玻璃」的层次。
+     系数不是 1:1 跟滑块走：滑块 32% 时面板实际 48% 白，因为 30% 白压在高饱和
+     照片上时，文字和面板边界会一起被吃掉。滑块语义是"浓度"，不是"精确 alpha"。 */
+  --glass-alpha: 0.32; /* 面板：标题栏 / 侧栏 / 详情 / 状态栏 */
+  --chrome-strong: min(1, calc(var(--glass-alpha) * 1.5));
+  --content-alpha: min(1, calc(var(--glass-alpha) * 1.35));
+  --card-alpha: min(1, calc(var(--glass-alpha) * 1.95));
+
+  /* 模糊半径由设置页滑块单独驱动，与不透明度完全解耦 */
+  --blur: var(--glass-blur, 24px);
+  --saturate: 1.7;
+
+  --sheen: calc(0.12 + var(--glass-alpha) * 0.5);
+  --edge-line: rgba(15, 23, 42, calc(0.055 + var(--glass-alpha) * 0.05));
+  --bg-chrome-solid: #ffffff;
+}
+
+/* ---- 玻璃 · 浅色：白色玻璃 + 深色字 ---- */
+:root[data-theme='glass'][data-scheme='light'] {
+  --bg-chrome: rgba(255, 255, 255, var(--chrome-strong));
+  --bg-content: rgba(250, 251, 253, var(--content-alpha));
+  --bg-card: rgba(255, 255, 255, var(--card-alpha));
+  --bg-elevated: rgba(255, 255, 255, min(1, calc(var(--card-alpha) * 1.18)));
+
+  /* 玻璃背后的颜色不可控（可能是用户导入的高饱和照片），深色字容易被吃掉。
+     所以玻璃下把次级文字整体压深一档 —— 简约主题不需要，它的底永远是实白。 */
+  --text-2: #47525f;
+  --text-3: #64707e;
+
+  /* 玻璃越透，背后颜色越不可控 —— 用白色光晕把深色字托起来 */
+  --text-halo: calc((1 - var(--glass-alpha)) * 0.6);
+  --halo-rgb: 255, 255, 255;
+}
+
+/* ---- 玻璃 · 深色：深色玻璃 + 浅色字 ----
+   深色面板压深色底时对比天然更弱，所以系数整体抬高，靠"面板比底色亮一档"来分层。
+   文字光晕方向也反过来：浅字压在亮壁纸上会糊，得给深色晕。 */
+:root[data-theme='glass'][data-scheme='dark'] {
+  --chrome-strong: min(1, calc(var(--glass-alpha) * 1.6));
+  --content-alpha: min(1, calc(var(--glass-alpha) * 1.4));
+  --card-alpha: min(1, calc(var(--glass-alpha) * 2.05));
+
+  --bg-chrome: rgba(34, 38, 46, var(--chrome-strong));
+  --bg-content: rgba(20, 23, 28, var(--content-alpha));
+  --bg-card: rgba(40, 45, 54, var(--card-alpha));
+  --bg-elevated: rgba(46, 52, 62, min(1, calc(var(--card-alpha) * 1.2)));
+  --bg-chrome-solid: #22262e;
+
+  --sheen: calc(0.1 + var(--glass-alpha) * 0.35);
+  --edge-line: rgba(255, 255, 255, calc(0.04 + var(--glass-alpha) * 0.06));
+  --text-halo: calc((1 - var(--glass-alpha)) * 0.55);
+  --halo-rgb: 0, 0, 0;
+}
+
+/* ==========================================================================
+   ③ 简约风格
+   纯实色、不模糊、不透光。看图场景用它最稳（背景不会干扰缩略图判断）。
+   ========================================================================== */
+
+:root[data-theme='minimal'] {
+  --blur: 0px;
+  --saturate: 1;
+  --sheen: 0;
+  --text-halo: 0;
+  --edge-line: transparent;
+  --halo-rgb: 0, 0, 0;
+  --bg-chrome-solid: #ffffff;
+}
+
+:root[data-theme='minimal'][data-scheme='light'] {
+  --bg-chrome: #ffffff;
+  --bg-content: #f1f3f8;
+  --bg-card: #ffffff;
+  --bg-elevated: #ffffff;
+}
+
+:root[data-theme='minimal'][data-scheme='dark'] {
+  --bg-chrome: #1b1f25;
+  --bg-content: #14171c;
+  --bg-card: #22262d;
+  --bg-elevated: #2a2f37;
+  --bg-chrome-solid: #1b1f25;
+}
+
+/* ==========================================================================
+   ④ 背景层（画在 body 上，窗口只在 desktop 模式下真透明）
+   ========================================================================== */
+
+/* 纯色：不是在白纸上刷一层死平色，而是带极淡的双光斑。
+   玻璃面板要"看得出是块板"，背后就得有明暗变化；死平色下白玻璃等于隐身。 */
+:root[data-bg='solid'][data-scheme='light'] {
+  --bg-wall: #e8ecf3;
+  --bg-wall-image:
+    radial-gradient(1200px 720px at 14% 0%, #fafcff 0%, rgba(250, 252, 255, 0) 62%),
+    radial-gradient(1000px 780px at 100% 100%, #dbe2ec 0%, rgba(219, 226, 236, 0) 58%);
+}
+
+:root[data-bg='solid'][data-scheme='dark'] {
+  --bg-wall: #0b0e12;
+  --bg-wall-image:
+    radial-gradient(1150px 700px at 14% 0%, #1c222c 0%, rgba(28, 34, 44, 0) 62%),
+    radial-gradient(950px 720px at 100% 100%, #171c24 0%, rgba(23, 28, 36, 0) 58%);
+}
+
+/* 自定义图片：URL 由 App.tsx 注入 --bg-image-url（走 sai2img:// 协议） */
+:root[data-bg='image'] {
+  --bg-wall: #14171d;
+  --bg-wall-image: var(--bg-image-url, none);
+}
+
+/* 图片背景额外压一层「纱」。
+   纯粹为了可读性：用户导入的可能是高饱和照片，玻璃面板只有 30% 白，
+   底色直接透上来会把次级文字和面板边界一起吃掉。纱很薄，图片本身照样看得清。 */
+:root[data-bg='image'][data-scheme='light'] {
+  --bg-wall-veil: rgba(255, 255, 255, 0.2);
+}
+
+:root[data-bg='image'][data-scheme='dark'] {
+  --bg-wall-veil: rgba(0, 0, 0, 0.3);
+}
+
+/* 桌面：窗口本来就有 transparent，body 不画任何底，直接看穿 */
+:root[data-bg='desktop'] {
+  --bg-wall: transparent;
+  --bg-wall-image: none;
+}
+
+/* 简约 + 图片/全透明：**整张纸**让开给背景，不只是内容区。
+
+   v1.16 修正：早先只把内容区调成半透明，侧栏 / 详情 / 标题栏 / 状态栏仍是实白，
+   结果背景图在三栏边界上被硬生生切开 —— 用户导入一张照片，看到的是
+   "中间有图、两边贴白纸"，三块白板把画面截成三段。
+   现在外壳与内容区共用同一支纱（--sheet），背景从窗口一端连续贯到另一端，
+   栏的划分改由 1px 描边承担，不再靠底色差。
+
+   v1.17：纱的厚薄交给「背景清晰度」滑块（--bg-clarity 0~1）驱动，不再写死。
+   为什么不做到默认全透明：页面标题、说明文字这些没有卡片包裹的元素会直接压在
+   花图上，灰字配彩底基本等于看不见（实测过，不是理论担心）。默认 40% 清晰度
+   （纱 55%）时图片依然看得出是什么，文字也能读；想看原图就把滑块拉到底。
+   卡片（--bg-card）始终实色，缩略图永远落在不透明底上（看图偏色是硬伤）。 */
+:root[data-theme='minimal'][data-bg='image'][data-scheme='light'],
+:root[data-theme='minimal'][data-bg='desktop'][data-scheme='light'] {
+  --sheet-rgb: 252, 253, 255;
+  --divider: rgba(15, 23, 42, 0.13);
+  --halo-rgb: 255, 255, 255;
+}
+
+:root[data-theme='minimal'][data-bg='image'][data-scheme='dark'],
+:root[data-theme='minimal'][data-bg='desktop'][data-scheme='dark'] {
+  --sheet-rgb: 16, 19, 24;
+  --divider: rgba(255, 255, 255, 0.14);
+  --halo-rgb: 0, 0, 0;
+}
+
+:root[data-theme='minimal'][data-bg='image'],
+:root[data-theme='minimal'][data-bg='desktop'] {
+  /* 清晰度 1 → 纱 0（面板全透，图片原样）；清晰度 0 → 纱 0.92（几乎实心）。
+     上限留 8% 而不是 1.0：滑到最低时还带一点点底色，否则和纯色模式完全一样，
+     滑块看起来像"没反应"。 */
+  --sheet-alpha: min(0.95, calc((1 - var(--bg-clarity, 0.4)) * 0.92));
+  --sheet: rgba(var(--sheet-rgb), var(--sheet-alpha));
+  --bg-chrome: var(--sheet);
+  --bg-content: var(--sheet);
+
+  /* 简约默认 --text-halo: 0（实底不需要晕）。但清晰度拉高后文字直接压在照片上，
+     没晕就等于看不见，所以这里按纱的厚薄自动补：纱越薄晕越强。 */
+  --text-halo: calc((1 - var(--sheet-alpha)) * 0.65);
+}

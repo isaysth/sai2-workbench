@@ -1,0 +1,10 @@
+{
+  "id": "thumb-sai2",
+  "name": "SAI2 缩略图",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "直接解 SAI2 文件自带的 thum / jssf 预览图；小画布 intg / dpcm 暂走同名封面兜底。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["thumbs", "thumb-kernel"]
+}

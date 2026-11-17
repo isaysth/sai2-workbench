@@ -1,0 +1,12 @@
+{
+  "id": "theme-demo",
+  "name": "示例主题：暖橙",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "演示主题插件：改强调色、圆角、字号三处；禁用后立即恢复。想自定义配色照着改这一份即可。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["theme"],
+  "permissions": ["修改外观变量（仅配色/圆角/字号白名单）"]
+}

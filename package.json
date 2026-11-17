@@ -1,0 +1,39 @@
+{
+  "name": "sai2-workbench",
+  "version": "0.1.0",
+  "description": "sai2工作台 —— 免安装的 SAI2 / PSD 工程文件浏览器与启动台",
+  "main": "out/main/index.js",
+  "license": "MIT",
+  "private": true,
+  "author": "",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "dist": "npm run build && electron-builder --win --x64",
+    "dist:dir": "npm run build && electron-builder --win --x64 --dir"
+  },
+  "dependencies": {
+    "ag-psd": "^34.2.1",
+    "chokidar": "^6.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "yauzl": "^3.4.0",
+    "zustand": "5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/yauzl": "^3.4.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "electron": "45.3.3",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "6.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

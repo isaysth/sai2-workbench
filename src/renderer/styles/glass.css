@@ -1,0 +1,98 @@
+/* ==========================================================================
+   玻璃质感层（v1.14）
+   --------------------------------------------------------------------------
+   现在只有一种模糊实现：**页面内自绘的全局模糊层**。
+
+   为什么不给每个面板单独挂 backdrop-filter：
+     .content 是滚动容器，在滚动层上挂 backdrop-filter 会让每次滚动都重算模糊，
+     1000 张缩略图滚动必掉帧（开发文档 §3.1 性能红线）。
+   改成在 .app 下面铺一个不滚动的 ::before 整窗模糊层，所有半透明面板透过它看背景，
+   一个模糊层解决全部面板，滚动时零成本。
+
+   为什么模糊终于"看得见"了：
+     背景改成"用户可导入图片"之后，图片是页面内的 body 背景，
+     backdrop-filter 能采到它 —— 这才是模糊滑块真正起作用的场景。
+     「桌面」模式仍然摸不到窗口后面的壁纸（浏览器内核限制），
+     这种情况下 data-glass='none'，不挂模糊层，避免 Chromium 兜白底。
+   ========================================================================== */
+
+/* ---- 整窗模糊层 ----
+   isolation: isolate 建一个层叠上下文，让 z-index:-1 的伪元素停在 .app 内部、
+   叠在 body 背景之上、所有界面元素之下。这样就不必去改每个子元素的定位。 */
+:root[data-theme='glass'][data-glass='on'] .app {
+  isolation: isolate;
+}
+
+:root[data-theme='glass'][data-glass='on'] .app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(var(--blur)) saturate(var(--saturate));
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--saturate));
+}
+
+/* ---- 拟态玻璃的"形" ----
+   白底可以归零，但"这是一块玻璃"要一直在：每个面板一条顶部内高光 + 一圈极淡描边。
+   完全透明时它们就是界面唯一的存在感来源。简约主题下 --sheen=0、--edge-line=transparent，
+   这两条规则自动失效，不用写第二套选择器。 */
+:root[data-theme='glass'] .titlebar,
+:root[data-theme='glass'] .sidebar,
+:root[data-theme='glass'] .details,
+:root[data-theme='glass'] .statusbar,
+:root[data-theme='glass'] .content {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--sheen)),
+    inset 0 0 0 1px var(--edge-line);
+}
+
+/* ---- 卡片统一用 surface 变量兜底 ----
+   注意：卡片可以半透明，但卡片**里的缩略图**必须自身不透明，
+   否则图片会被背景染色 —— 画师看图偏色是硬伤（需求 §3 硬指标 2）。 */
+:root[data-theme='glass'] .surface,
+:root[data-theme='glass'] .tile,
+:root[data-theme='glass'] .setting-card,
+:root[data-theme='glass'] .launch-hero,
+:root[data-theme='glass'] .log-toolbar .input,
+:root[data-theme='glass'] .select,
+:root[data-theme='glass'] .theme-card {
+  background-color: var(--bg-card);
+}
+
+/* 看图区永远不掺玻璃 */
+:root[data-theme='glass'] .file-card__thumb,
+:root[data-theme='glass'] .thumb-frame {
+  background-color: var(--bg-chrome-solid);
+}
+
+/* ---- 装饰用的 .glass-edge 伪高光 ----
+   浅色面板顶边压一道深发丝线（白色高光在白玻璃上看不出来），深色反过来。 */
+.glass-edge {
+  position: relative;
+}
+
+.glass-edge::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--halo-rgb, 255, 255, 255), 0.14),
+    rgba(var(--halo-rgb, 255, 255, 255), 0.04) 46%,
+    rgba(var(--halo-rgb, 255, 255, 255), 0)
+  );
+}
+
+:root[data-scheme='light'] .glass-edge::before {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.07),
+    rgba(15, 23, 42, 0.02) 46%,
+    rgba(15, 23, 42, 0)
+  );
+}

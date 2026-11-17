@@ -1,0 +1,10 @@
+{
+  "id": "thumb-psd",
+  "name": "PSD 缩略图",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "用 ag-psd 合成 PSD / PSB 缩略图；大文件由内核 worker 解码，不卡界面。禁用后这类文件走同名封面兜底。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["thumbs", "thumb-kernel"]
+}

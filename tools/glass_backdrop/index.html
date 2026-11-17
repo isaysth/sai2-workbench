@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>glass backdrop</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        /* 纯色底：任何残留的白膜都会立刻显形（渐变和光斑会干扰取样判断） */
+        background: #3366cc;
+      }
+      /* 高对比竖条纹：用来判断 DWM 模糊是否真的生效（模糊后条纹会糊成一片灰） */
+      .stripes {
+        position: absolute;
+        inset: 0;
+        background-image: repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.9) 0 10px,
+          rgba(8, 8, 12, 0.9) 10px 22px
+        );
+        width: 460px;
+        left: 1180px;
+        opacity: 0.85;
+      }
+      .label {
+        position: absolute;
+        left: 40px;
+        bottom: 40px;
+        color: #fff;
+        font: 600 28px/1.5 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+  </body>
+</html>

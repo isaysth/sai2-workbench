@@ -1,0 +1,41 @@
+# M4 免安装文件夹打包配置（需求 §9 / 开发文档 §9 M4）
+# 产物形态：win-unpacked/（双击即用）+ 同名 zip（拷走换电脑），不写注册表。
+
+appId: com.sai2.workbench
+productName: sai2工作台
+copyright: Copyright © 2026 sai2工作台
+
+directories:
+  output: dist
+  buildResources: build
+
+# 只收编译产物：node_modules 由 electron-vite 的 externalizeDepsPlugin 按实际引用收集，
+# 不放行整包（本机 node_modules 约 582MB，其中 electron/dist 占 358MB，绝不能进包）。
+files:
+  - out/**/*
+  - package.json
+
+# asar 外的只读资源：跟程序走，不随数据目录回退（见 paths.ts）。
+extraResources:
+  - from: resources/builtin-plugins
+    to: builtin-plugins
+  - from: build/icon.png
+    to: icon.png
+
+# worker_threads 不能从 asar 内部加载，需解包到 app.asar.unpacked。
+asarUnpack:
+  - out/main/thumb.worker.js
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: dir
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  # 不请求管理员权限：程序要在 Program Files 这类目录以普通用户身份可运行。
+  requestedExecutionLevel: asInvoker
+
+compression: maximum

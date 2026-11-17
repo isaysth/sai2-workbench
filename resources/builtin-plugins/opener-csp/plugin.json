@@ -1,0 +1,11 @@
+{
+  "id": "opener-csp",
+  "name": "Clip Studio Paint 打开器",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "用 Clip Studio Paint 打开 .clip；填了路径才生效，可单独禁用。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["openers"]
+}

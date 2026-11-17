@@ -1,0 +1,11 @@
+{
+  "id": "sai2-companion",
+  "name": "启动联动",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "启动画图程序时，按你配置的顺序和延迟自动拉起参考图软件 / 录屏软件；路径失效只提示，不阻断。",
+  "entry": "index.js",
+  "system": false,
+  "permissions": ["启动本地程序（仅你填写的路径）", "读取文件路径是否存在"]
+}
