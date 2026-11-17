@@ -27,6 +27,15 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        // 插件浮窗用独立的 preload，只暴露消息桥，不暴露工作台完整 api
+        input: {
+          index: resolve('src/preload/index.ts'),
+          'plugin-window': resolve('src/preload/plugin-window.ts')
+        }
+      }
+    },
     resolve: {
       alias: {
         '@shared': resolve('src/shared')

@@ -12,6 +12,10 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['tests/unit/**/*.test.ts']
+    include: ['tests/unit/**/*.test.ts'],
+    // 当前环境的默认 worker 池会让 Vitest 5 的 runner 上下文丢失（所有 describe
+    // 都报 “Cannot read properties of undefined (reading 'config')”）。
+    // vmThreads 在独立 VM 上下文里跑纯逻辑单测，已验证 13 个文件全部通过。
+    pool: 'vmThreads'
   }
 })

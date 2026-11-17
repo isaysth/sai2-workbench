@@ -43,6 +43,11 @@ export interface PluginManifest {
   permissions: string[]
   /** 需要独立 worker 的插件可声明自己的入口（如大 PSD 解码） */
   workerEntry?: string
+  /**
+   * 插件申请的内核能力。当前支持 'window'（独立浮窗）。
+   * 未声明的插件拿不到对应 ctx 能力，内核会在调用时拒绝。
+   */
+  capabilities?: string[]
 }
 
 /** 渲染端插件卡片拿到的全部信息 */

@@ -18,6 +18,7 @@ import { registerThemeIpc } from './ipc/theme.ipc'
 import { broadcast } from './ipc/broadcast'
 import { OpenersService } from './openers/service'
 import { PluginSystem } from './plugins'
+import { createElectronWindowFactory, registerPluginWindowIpc } from './plugins/window-factory'
 import { PluginWatcher } from './plugins/watch'
 import { Logger } from './logger'
 import { resolvePaths } from './paths'
@@ -76,10 +77,21 @@ async function bootstrap(): Promise<void> {
   registerLogIpc(log)
 
   // 插件底座：基础 IPC 就绪后装配，索引 / 缩略图构造完再 provide，最后 initialize
+  // 主题服务先建好，浮窗工厂注入时需要读它的变量表（延迟读取）
+  const themeService = new ThemeService({
+    log,
+    onChange: () => broadcast(CH.themeChanged, themeService.getVars())
+  })
+
   const plugins = new PluginSystem({
     log,
     config,
     paths,
+    windowFactory: createElectronWindowFactory({
+      log,
+      isDev,
+      themeVars: () => themeService.getVars()
+    }),
     onChanged: () =>
       broadcast(CH.pluginChanged, {
         plugins: plugins.list(),
@@ -89,6 +101,7 @@ async function bootstrap(): Promise<void> {
       })
   })
   registerPluginsIpc({ plugins, log, pluginDir: paths.pluginDir })
+  registerPluginWindowIpc(plugins.windows, log)
 
   // ---- 索引库 + 文件索引 + 缩略图 ----
   // 三者互相需要（索引要推事件、缩略图要回填索引、IPC 要两者），
@@ -151,11 +164,7 @@ async function bootstrap(): Promise<void> {
   plugins.provide('openers', openers)
   registerOpenersIpc({ openers, config, log })
 
-  // 主题变量：插件贡献 CSS 变量，变化时推给渲染端即时生效
-  const themeService = new ThemeService({
-    log,
-    onChange: () => broadcast(CH.themeChanged, themeService.getVars())
-  })
+  // 主题变量：插件贡献 CSS 变量，变化时推给渲染端即时生效（实例在插件底座前已建好）
   plugins.provide('theme', themeService)
   registerThemeIpc(themeService)
 

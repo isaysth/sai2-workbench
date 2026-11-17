@@ -95,7 +95,9 @@ export const CH = {
   /** 插件状态或贡献点变化（主进程 → 渲染端） */
   pluginChanged: 'plugin:changed',
   /** 触发插件注册的菜单 / 工具栏动作 */
-  pluginRunAction: 'plugin:run-action'
+  pluginRunAction: 'plugin:run-action',
+  /** 插件浮窗 → 插件的消息（payload = { pluginId, message }） */
+  pluginWindowMessage: 'plugin:window-message'
 } as const
 
 export type ChannelKey = keyof typeof CH
