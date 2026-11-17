@@ -1,6 +1,8 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useState, type MouseEvent, type ReactElement } from 'react'
 import { SchemaForm } from '../components/SchemaForm'
+import { ContextMenu, type MenuItem } from '../components/ContextMenu'
 import { usePlugins } from '../store/plugins'
+import type { PluginInfo } from '@shared/plugins'
 
 const STATUS_TEXT: Record<string, string> = {
   running: '运行中',
@@ -28,6 +30,7 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
 
   const [draft, setDraft] = useState<Record<string, unknown>>({})
   const [dirty, setDirty] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number; plugin: PluginInfo } | null>(null)
   const selected = items.find((p) => p.id === selectedId) ?? null
 
   useEffect(() => {
@@ -63,6 +66,44 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
     }
   }
 
+  const onItemContext = (p: PluginInfo, e: MouseEvent): void => {
+    e.preventDefault()
+    select(p.id)
+    setMenu({ x: e.clientX, y: e.clientY, plugin: p })
+  }
+
+  const closeMenu = (): void => setMenu(null)
+
+  const menuItems: MenuItem[] = menu
+    ? (() => {
+        const p = menu.plugin
+        const running = p.status === 'running'
+        const list: MenuItem[] = [
+          {
+            id: 'toggle',
+            label: running ? '禁用此插件' : '启用此插件',
+            disabled: p.system,
+            onClick: () => void setEnabled(p.id, !running)
+          },
+          { id: 'reload', label: '重新加载', onClick: () => void reload(p.id) },
+          {
+            id: 'copy-id',
+            label: '复制插件 ID',
+            onClick: () => void navigator.clipboard.writeText(p.id).then(() => onToast('插件 ID 已复制'))
+          },
+          { id: 'sep', label: '', onClick: () => {} },
+          {
+            id: 'uninstall',
+            label: '卸载插件',
+            danger: true,
+            disabled: p.source === 'builtin',
+            onClick: () => void uninstall(p.id)
+          }
+        ]
+        return list
+      })()
+    : []
+
   return (
     <div className="page">
       <div className="page-head">
@@ -81,7 +122,19 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
       </div>
 
       <div className="plugin-notice">
-        插件是本地可信代码，主进程直接加载 —— 安装即授权。请只安装你信任的插件；写坏的插件会被隔离到「加载失败」，但无法做到进程级隔离。
+        <b>使用说明</b>
+        <br />
+        ① 点右上角「从 zip 安装」或「从文件夹安装」添加插件，安装后自动启用；也可把插件目录放进插件目录后点「刷新」。
+        <br />
+        ② 在左侧列表点选一个插件查看状态、说明与配置；右键列表项可快速启用/禁用、重载、复制 ID 或卸载。
+        <br />
+        ③ 改完配置记得点「保存配置」；FX Studio 这类插件保存后会自动重载生效。
+        <br />
+        ④ 内置插件不能卸载，系统插件不能禁用。写坏的插件会被隔离到「加载失败」，不会影响主程序。
+        <br />
+        <span className="plugin-notice-warn">
+          安全提示：插件是本地可信代码，主进程直接加载 —— 安装即授权。请只安装你信任的插件，本程序无法做到进程级隔离。
+        </span>
       </div>
 
       {loading && items.length === 0 ? <div className="empty-desc">正在读取插件…</div> : null}
@@ -99,6 +152,8 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
               key={p.id}
               className={`plugin-item${p.id === selectedId ? ' is-active' : ''}`}
               onClick={() => select(p.id)}
+              onContextMenu={(e) => onItemContext(p, e)}
+              title="右键查看更多操作"
             >
               <span className={`plugin-status plugin-status--${p.status}`}>{STATUS_TEXT[p.status] ?? p.status}</span>
               <span className="plugin-item-name">{p.name}</span>
@@ -165,6 +220,12 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
           </div>
         ) : null}
       </div>
+
+      <ContextMenu
+        at={menu ? { x: menu.x, y: menu.y } : null}
+        onClose={closeMenu}
+        items={menuItems}
+      />
     </div>
   )
 }

@@ -2022,6 +2022,12 @@ body.is-dragging * {
   line-height: 1.6;
 }
 
+.plugin-notice-warn {
+  display: inline-block;
+  margin-top: 6px;
+  color: #b7791f;
+}
+
 .plugin-layout {
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;
@@ -2231,7 +2237,9 @@ body.is-dragging * {
   background: #fff;
 }
 
-/* ---- M3b：右键菜单 ---- */
+/* ---- 右键菜单 ---- */
+/* 用固定实底，不用 var(--sheet)：透明玻璃/桌面模式下 sheet 的 alpha 接近 0，
+   菜单会弹出来却看不见，看起来像"右键没反应"。文字也显式给色，不依赖可能带晕的主题变量。 */
 .context-menu {
   position: fixed;
   z-index: 900;
@@ -2241,10 +2249,9 @@ body.is-dragging * {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  border: 1px solid var(--divider);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-  background: var(--sheet);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(128, 128, 128, 0.28);
+  background: #f7f9fc;
   animation: menu-in 0.1s ease-out;
 }
 
@@ -2253,12 +2260,16 @@ body.is-dragging * {
   to { opacity: 1; transform: translateY(0); }
 }
 
+:root[data-scheme='dark'] .context-menu {
+  background: #232830;
+}
+
 .context-item {
   appearance: none;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-1);
+  color: #16191d;
   font: inherit;
   font-size: 12px;
   text-align: left;
@@ -2269,12 +2280,21 @@ body.is-dragging * {
   text-overflow: ellipsis;
 }
 
-.context-item:hover {
-  background: var(--hover, rgba(128, 128, 128, 0.14));
+:root[data-scheme='dark'] .context-item {
+  color: #eef2f7;
+}
+
+.context-item:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.16);
+}
+
+.context-item:disabled {
+  opacity: 0.42;
+  cursor: default;
 }
 
 .context-item.is-danger {
-  color: #e5484d;
+  color: #d14343;
 }
 
 .context-sep {

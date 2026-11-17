@@ -409,12 +409,14 @@ export function FilesPage({
       <ContextMenu
         at={menu}
         onClose={closeMenu}
-        onOpen={openFile}
-        onReveal={(path) => void window.api.files.reveal(path)}
-        onCopyPath={(path) => void navigator.clipboard.writeText(path).then(() => toast('路径已复制'))}
-        ext={menuExt}
-        pluginActions={fileActions}
-        onPluginAction={onPluginAction}
+        file={{
+          onOpen: openFile,
+          onReveal: (path) => void window.api.files.reveal(path),
+          onCopyPath: (path) => void navigator.clipboard.writeText(path).then(() => toast('路径已复制')),
+          ext: menuExt,
+          pluginActions: fileActions,
+          onPluginAction
+        }}
       />
     </div>
   )
