@@ -10,7 +10,8 @@
 | 独立插件源码 | `contrib/sai2-fx-studio/` | 不在工作台主程序包内 |
 | 可安装插件 zip | `dist/sai2-fx-studio-0.1.0.zip`（3.05 MB，含上游套件） | 用户在插件中心「从 zip 安装」，安装即用 |
 | 内核浮窗能力 | `src/main/plugins/windows.ts`、`window-factory.ts`、`src/preload/plugin-window.ts` | 通用、受控，仅声明 `capabilities:['window']` 的插件可用 |
-| GitHub Release 附件 | `v0.1.0`：`sai2-workbench-0.1.0-win-x64.zip`（已替换为修复版）+ `sai2-fx-studio-0.1.0.zip` | 已上传并回读确认，与工作台主程序 zip 并列供直接下载 |
+| GitHub Release 附件 | `v0.1.0`：`sai2-workbench-0.1.0-win-x64.zip`（修复版）+ `sai2-fx-studio-0.1.0.zip` + `sai2-workbench-0.1.0-patch-win.zip`（增量升级包） | 已上传并回读确认 |
+| 增量升级包 | `dist/sai2工作台-0.1.0-增量升级包.zip`（2.4 MB） | 只含 `resources/app.asar` + 说明 + 校验值，旧 exe 无需替换（实测通过）；适用于从初始 v0.1.0 升级到修复版 |
 
 ## 二、分层实现（对照计划）
 
