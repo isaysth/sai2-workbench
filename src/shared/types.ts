@@ -240,5 +240,21 @@ export interface RuntimeInfo {
   isDev: boolean
 }
 
-/** 窗口控制动作（自定义标题栏需要）。 */
-export type WindowAction = 'minimize' | 'toggle-maximize' | 'close'
+/** 窗口控制动作（自定义标题栏 / 悬浮条需要）。 */
+export type WindowAction =
+  | 'minimize'
+  | 'toggle-maximize'
+  | 'close'
+  /** 切换悬浮窗（小窗 ↔ 正常窗口） */
+  | 'toggle-float'
+  /** 收进托盘（隐藏窗口但保持进程） */
+  | 'tray'
+  /** 从托盘菜单 / 悬浮条显式退出 */
+  | 'quit'
+
+/** 悬浮窗的配置与状态（插件配置驱动，主进程 → 渲染端） */
+export interface FloatModeState {
+  active: boolean
+  width: number
+  height: number
+}

@@ -2310,3 +2310,124 @@ body.is-dragging * {
 .setting-card-title {
   font-size: calc(1em * var(--font-scale, 1));
 }
+
+/* ---- 插件中心：打开器配置区 + 插件目录提示 ---- */
+.plugin-notice-dir {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.7;
+  word-break: break-all;
+}
+
+.plugin-openers {
+  margin: 10px 0 14px;
+}
+
+.plugin-openers .setting-card {
+  max-width: none;
+}
+
+/* ---- 启动悬浮窗插件：小窗模式 ----
+   小窗要压在 SAI2 上方，必须永远是不透明实底；不能跟透明玻璃主题的变量走，
+   否则「最小化后完全透明」那套规则会让它变成一个看不见的条。 */
+.app.is-float {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+}
+
+.float-bar {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  background: #f7f9fc;
+  color: #202531;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.3);
+  user-select: none;
+}
+
+:root[data-scheme='dark'] .float-bar {
+  background: #232830;
+  color: #eef2f7;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.float-bar-drag {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-height: 0;
+}
+
+.float-bar-mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.float-bar-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.float-bar-text b {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.float-bar-text span {
+  font-size: 10px;
+  line-height: 1.2;
+  opacity: 0.66;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.float-bar-actions {
+  -webkit-app-region: no-drag;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.float-btn {
+  appearance: none;
+  border: 1px solid var(--divider, rgba(128, 128, 128, 0.24));
+  border-radius: 7px;
+  background: rgba(128, 128, 128, 0.09);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.float-btn:hover {
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.float-btn.is-close {
+  margin-left: auto;
+  color: #d14343;
+}
+
+.float-bar-foot {
+  -webkit-app-region: drag;
+  margin-top: 5px;
+  font-size: 9px;
+  opacity: 0.45;
+  text-align: right;
+}

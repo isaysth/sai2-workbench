@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactElement } from 'react'
-import type { AppConfig, OpenerView, RuntimeInfo } from '@shared/types'
+import type { AppConfig, FloatModeState, OpenerView, RuntimeInfo } from '@shared/types'
 import type { PluginPageContribution } from '@shared/plugins'
 import { DetailsPanel } from './components/DetailsPanel'
+import { FloatBar } from './components/FloatBar'
 import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import { TitleBar } from './components/TitleBar'
@@ -36,16 +37,18 @@ const BUILTIN_PAGES: Record<string, (ctx: PageRenderCtx) => ReactElement> = {
   ),
   files: ({ config, goto, toast }) => <FilesPage goto={goto} config={config} toast={toast} />,
   logs: ({ toast }) => <LogPage onToast={toast} />,
-  plugins: ({ toast }) => <PluginPage onToast={toast} />,
-  settings: ({ runtime, config, updateConfig, toast, openers, refreshOpeners }) => (
-    <SettingsPage
+  plugins: ({ runtime, config, updateConfig, toast, openers, refreshOpeners }) => (
+    <PluginPage
+      onToast={toast}
       runtime={runtime}
       config={config}
       updateConfig={updateConfig}
-      toast={toast}
       openers={openers}
       refreshOpeners={refreshOpeners}
     />
+  ),
+  settings: ({ runtime, config, updateConfig, toast, goto }) => (
+    <SettingsPage runtime={runtime} config={config} updateConfig={updateConfig} toast={toast} goto={goto} />
   )
 }
 
@@ -105,6 +108,7 @@ export default function App(): ReactElement {
   const pluginPages = usePlugins((s) => s.pages)
   const pluginStatuses = usePlugins((s) => s.statuses)
   const [openers, setOpeners] = useState<OpenerView[]>([])
+  const [floatState, setFloatState] = useState<FloatModeState | null>(null)
   const [themeVars, setThemeVars] = useState<Record<string, string>>({})
   const appliedThemeVars = useRef<Set<string>>(new Set())
   // 详情面板要的那一份：优先从筛选结果里找，找不到再回全量（选中项恰好被筛掉的瞬间）
@@ -125,7 +129,13 @@ export default function App(): ReactElement {
     // 主题变量：一次性拉当前值，之后插件改动走事件
     void window.api.theme.get().then(setThemeVars)
     const offTheme = window.api.theme.onChanged(setThemeVars)
-    return offTheme
+    // 悬浮状态：插件可能早于页面加载就切了模式，先补一次再订阅
+    void window.api.floatState().then(setFloatState)
+    const offFloat = window.api.onFloatChanged(setFloatState)
+    return () => {
+      offTheme()
+      offFloat()
+    }
   }, [start])
 
   // 外观落地：三个 dataset + 两个变量，其余全靠 CSS 变量切换（零重排、零闪烁）
@@ -190,6 +200,16 @@ export default function App(): ReactElement {
     },
     [setLeftWidth, setRightWidth, persistWidth]
   )
+
+  // 悬浮模式只渲染一条小窗，侧栏 / 详情面板 / 状态栏都不加载，省内存也省屏幕
+  if (floatState?.active) {
+    return (
+      <div className="app is-float">
+        <FloatBar state={floatState} />
+        {toastText ? <div className="toast">{toastText}</div> : null}
+      </div>
+    )
+  }
 
   if (!runtime || !config) {
     return (

@@ -5,8 +5,12 @@
 export const CH = {
   /** 运行环境信息（数据目录、是否支持毛玻璃等） */
   appRuntime: 'app:runtime',
-  /** 窗口控制：最小化 / 最大化切换 / 关闭 */
+  /** 窗口控制：最小化 / 最大化切换 / 关闭 / 悬浮窗 / 托盘 */
   appWindow: 'app:window',
+  /** 主窗口进入 / 退出悬浮模式（主进程 → 渲染端） */
+  windowFloatChanged: 'window:float-changed',
+  /** 渲染端首次拉取悬浮状态（插件可能在页面加载前就切了模式） */
+  appFloatState: 'app:float-state',
   /** 选一张本地图片作为窗口背景（先落到临时文件，等取景确认） */
   appPickBackground: 'app:pick-background',
   /** 按取景框内的区域裁出新背景（渲染端出 PNG 字节 → bg-*.png） */

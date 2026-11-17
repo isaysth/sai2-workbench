@@ -12,6 +12,7 @@ import { extname, join } from 'node:path'
 import { CH } from '@shared/channels'
 import type { RuntimeInfo, WindowAction } from '@shared/types'
 import type { Logger } from '../logger'
+import type { WindowManager } from '../window-manager'
 
 /** 背景图上限。4K 壁纸通常 2~6MB，8MB 足够，同时挡住"误拖一张 50MB 的源文件进来" */
 const MAX_BACKGROUND_BYTES = 8 * 1024 * 1024
@@ -35,10 +36,11 @@ function safeFileName(raw: unknown): string | null {
 }
 
 /** 运行环境查询 + 自定义标题栏窗口按钮 + 背景图导入 */
-export function registerAppIpc(runtime: RuntimeInfo, log: Logger, backgroundDir: string): void {
+export function registerAppIpc(runtime: RuntimeInfo, log: Logger, backgroundDir: string, wm: WindowManager): void {
   sweepPending(backgroundDir, log)
 
   ipcMain.handle(CH.appRuntime, () => runtime)
+  ipcMain.handle(CH.appFloatState, () => wm.state())
 
   ipcMain.handle(CH.appWindow, (event, action: WindowAction) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -46,11 +48,21 @@ export function registerAppIpc(runtime: RuntimeInfo, log: Logger, backgroundDir:
 
     switch (action) {
       case 'minimize':
-        win.minimize()
+        // 「最小化到托盘」由 launcher-float 插件配置决定，渲染端不用知道
+        wm.handleMinimize()
         break
       case 'toggle-maximize':
         if (win.isMaximized()) win.unmaximize()
         else win.maximize()
+        break
+      case 'toggle-float':
+        wm.toggleFloat()
+        break
+      case 'tray':
+        wm.hideToTray()
+        break
+      case 'quit':
+        wm.quit()
         break
       case 'close':
         win.close()

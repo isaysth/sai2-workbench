@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { basename } from 'node:path'
 import { CH } from '@shared/channels'
 import type { FileChangeEvent, RuntimeInfo } from '@shared/types'
@@ -27,6 +27,8 @@ import { detectCapability, applyNativeTheme } from './theme'
 import { ThemeService } from './theme/service'
 import { ThumbService } from './thumbs'
 import { imageProvider, psdProvider, sai2Provider } from './thumbs/providers'
+import { createNativeTray } from './tray'
+import { WindowManager } from './window-manager'
 import { createMainWindow } from './window'
 
 /** 启动序列（开发文档 §4.3）：路径 → 配置 → 日志 → 平台能力 → IPC → 窗口 */
@@ -72,7 +74,17 @@ async function bootstrap(): Promise<void> {
   // 原生主题只影响系统对话框与窗口装饰的明暗，跟「玻璃 / 简约」无关
   applyNativeTheme(config.get<string>('general.scheme') ?? 'light')
 
-  registerAppIpc(runtime, log, paths.backgroundDir)
+  // 窗口管理器独立于插件存在：即使插件没激活，标题栏的窗口按钮也要能用。
+  // 托盘、悬浮、最小化行为由 launcher-float 插件通过 configure 注入配置。
+  const wm = new WindowManager({
+    log,
+    createTray: createNativeTray,
+    workArea: () => screen.getPrimaryDisplay().workArea,
+    broadcast: (channel, payload) => broadcast(channel, payload),
+    quit: () => app.quit()
+  })
+
+  registerAppIpc(runtime, log, paths.backgroundDir, wm)
   registerConfigIpc(config, log)
   registerLogIpc(log)
 
@@ -174,6 +186,13 @@ async function bootstrap(): Promise<void> {
   // 解码算法留在内核；插件只负责 match 与注册，避免把 TS 产物路径写进 JS 插件
   plugins.provide('thumb-kernel', { imageProvider, psdProvider, sai2Provider })
   plugins.provide('meta', meta)
+  plugins.provide('window-manager', wm)
+  // 托盘菜单里的「启动 SAI2」走同一条打开器链路，路径校验与联动事件都不重复实现
+  wm.setLaunchHandler(() => {
+    void openers.launch().then((res) => {
+      if (!res.ok) log.warn('window-manager', `托盘启动失败：${res.error ?? '未知原因'}`)
+    })
+  })
 
   const filesIpc = registerFilesIpc({ index, config, thumbs, log })
   changeSink = filesIpc.onChange
@@ -233,9 +252,14 @@ async function bootstrap(): Promise<void> {
       .then(async () => {
         pluginWatcher?.stop()
         await plugins.disposeAll().catch(() => undefined)
+        log.info('app', '退出：插件已全部停用')
+        wm.dispose()
+        log.info('app', '退出：窗口管理器已释放')
         db.close()
         cleaned = true
-        app.quit()
+        // 此时 will-quit 已被 preventDefault 过一次，再调 app.quit() 会被 Electron 忽略
+        // （托盘存在时尤其明显）。清理已全部完成，直接 exit 保证进程真的退出。
+        app.exit()
       })
   })
 
@@ -243,6 +267,20 @@ async function bootstrap(): Promise<void> {
   if (rendererUrl) log.info('app', `渲染进程开发服务器：${rendererUrl}`)
 
   const win = createMainWindow({ config, log, rendererUrl })
+  wm.attach(win)
+
+  // 任何来源的退出（托盘菜单、系统关机、EVAL 调试）都要先打标，
+  // 否则 window-all-closed 会误以为这是「关窗口」而继续保活托盘进程。
+  app.on('before-quit', () => wm.beginQuit())
+
+  // 托盘存在时，关掉最后一个窗口不应退出进程（异常路径兜底）
+  app.on('window-all-closed', () => {
+    if (wm.shouldKeepAlive()) {
+      log.info('app', '最后一个窗口已关闭，保留托盘进程')
+      return
+    }
+    app.quit()
+  })
 
   // 窗口始终透明，不再有"切主题要开关系统材质"这套逻辑；
   // 只剩一件事：明暗变化时把原生主题同步过去，系统右键菜单之类才不会反色。
@@ -266,6 +304,7 @@ if (!gotLock) {
     const [win] = BrowserWindow.getAllWindows()
     if (win) {
       if (win.isMinimized()) win.restore()
+      if (!win.isVisible()) win.show()
       win.focus()
     }
   })
@@ -282,10 +321,6 @@ if (!gotLock) {
     return bootstrap()
   }).catch((err) => {
     console.error('[sai2工作台] 启动失败', err)
-    app.quit()
-  })
-
-  app.on('window-all-closed', () => {
     app.quit()
   })
 }

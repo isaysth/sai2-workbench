@@ -5,6 +5,7 @@ import type {
   AutoTagRule,
   FileChangeEvent,
   FileMetaEvent,
+  FloatModeState,
   IndexProgress,
   LogEntry,
   OpenerView,
@@ -26,6 +27,16 @@ const api = {
 
   windowAction: (action: WindowAction): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(CH.appWindow, action),
+
+  /** 当前悬浮窗状态（页面加载时补一次，之后靠事件推送） */
+  floatState: (): Promise<FloatModeState> => ipcRenderer.invoke(CH.appFloatState),
+
+  /** 悬浮窗状态推送（主进程 → 渲染端） */
+  onFloatChanged: (cb: (state: FloatModeState) => void): (() => void) => {
+    const handler = (_e: unknown, state: FloatModeState): void => cb(state)
+    ipcRenderer.on(CH.windowFloatChanged, handler)
+    return () => ipcRenderer.off(CH.windowFloatChanged, handler)
+  },
 
   /**
    * 选一张本地图片当背景。返回落在 data/backgrounds 里的**临时**文件名，

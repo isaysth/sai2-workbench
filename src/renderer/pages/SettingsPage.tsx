@@ -4,11 +4,11 @@ import type {
   AppConfig,
   BackgroundMode,
   ColorScheme,
-  OpenerView,
   RuntimeInfo,
   ThemeName,
   ThumbCacheStats
 } from '@shared/types'
+import type { PageKey } from '../store/ui'
 import { CitrusMark } from '../components/Brand'
 import { CropDialog } from '../components/CropDialog'
 import { useMeta } from '../store/meta'
@@ -48,9 +48,7 @@ interface SettingsProps {
   config: AppConfig
   updateConfig: (key: string, value: unknown) => Promise<void>
   toast: (msg: string) => void
-  /** 打开器状态（M3b），从注册表取；未传时退化成配置文件里的路径 */
-  openers?: OpenerView[]
-  refreshOpeners?: () => void
+  goto: (page: PageKey) => void
 }
 
 /**
@@ -62,7 +60,7 @@ interface SettingsProps {
  * 但简约在图片/全透明背景下确实有一层纱，它的厚薄由「背景清晰度」单独控制，
  * 那个滑块放在「背景」卡片里，因为它调的是背景的显示程度，不是面板材质。
  */
-export function SettingsPage({ runtime, config, updateConfig, toast, openers = [], refreshOpeners }: SettingsProps): ReactElement {
+export function SettingsPage({ runtime, config, updateConfig, toast, goto }: SettingsProps): ReactElement {
   const [alpha, setAlpha] = useState(config.general.glassOpacity)
   const [blur, setBlur] = useState(config.general.glassBlur)
   const [clarity, setClarity] = useState(config.general.bgClarity)
@@ -696,79 +694,18 @@ export function SettingsPage({ runtime, config, updateConfig, toast, openers = [
 
         <section className="setting-card">
           <div className="setting-card-head">
-            <span className="setting-card-title">画图程序路径</span>
-            <span className="setting-card-note">默认打开器决定侧栏按钮和双击行为</span>
+            <span className="setting-card-title">画图程序与插件</span>
+            <span className="setting-card-note">已经归到插件中心</span>
           </div>
-
-          <div className="setting-row">
-            <span className="setting-label">默认打开器</span>
-            <select
-              className="select"
-              value={config.openers.default}
-              onChange={(e) => void updateConfig('openers.default', e.target.value)}
-              title="只有填了路径的打开器才能设为默认"
-            >
-              {openers.length > 0
-                ? openers.map((o) => (
-                    <option key={o.id} value={o.id} disabled={!o.ready}>
-                      {o.label}{o.ready ? '' : '（未配置路径）'}
-                    </option>
-                  ))
-                : <option value={config.openers.default}>读取中…</option>}
-            </select>
-          </div>
-
-          {(['sai2', 'ps', 'csp'] as const).map((key) => {
-            const found = openers.find((o) => o.configKey === key)
-            const path = found?.path ?? config.openers[key].path
-            const ready = found?.ready ?? false
-            return (
-              <div className="setting-row" key={key}>
-                <span className="setting-label">
-                  <span className={`dot${ready ? ' is-on' : ' is-warn'}`} />{' '}
-                  {key === 'sai2' ? 'SAI2' : key === 'ps' ? 'Photoshop' : 'Clip Studio'}
-                </span>
-                <span className="setting-value" title={path || undefined}>
-                  {path || '未填写'}
-                </span>
-                <button
-                  className="btn is-sm"
-                  onClick={() => {
-                    void window.api.pickFile('exe').then((res) => {
-                      if (res.canceled) return
-                      if (!res.ok || res.paths.length === 0) {
-                        toast(res.ok ? '没选到程序' : '选择失败')
-                        return
-                      }
-                      void updateConfig(`openers.${key}.path`, res.paths[0]).then(() => {
-                        refreshOpeners?.()
-                        toast('路径已保存')
-                      })
-                    })
-                  }}
-                >
-                  选择程序
-                </button>
-                {path ? (
-                  <button
-                    className="btn is-sm"
-                    onClick={() => {
-                      void updateConfig(`openers.${key}.path`, '').then(() => {
-                        refreshOpeners?.()
-                        toast('路径已清空')
-                      })
-                    }}
-                  >
-                    清空
-                  </button>
-                ) : null}
-              </div>
-            )
-          })}
           <span className="setting-card-note">
-            启动外部程序时不经过命令行解释器；关掉工作台不会连带关闭画图软件。
-            联动软件在「插件中心 → sai2-companion」里配置。
+            打开器路径、默认画图程序、启动联动、悬浮窗等行为都由插件提供，
+            统一放在插件中心管理，这里不再重复一份。
           </span>
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', marginTop: 8 }}>
+            <button className="btn is-sm" onClick={() => goto('plugins')}>
+              去插件中心配置
+            </button>
+          </div>
         </section>
 
         <section className="setting-card">
@@ -791,12 +728,6 @@ export function SettingsPage({ runtime, config, updateConfig, toast, openers = [
             <span className="setting-label">数据目录</span>
             <span className="setting-value" title={runtime.dataDir}>
               {runtime.dataDir}
-            </span>
-          </div>
-          <div className="setting-row">
-            <span className="setting-label">插件目录</span>
-            <span className="setting-value" title={runtime.pluginDir}>
-              {runtime.pluginDir}
             </span>
           </div>
           <div className="setting-row">

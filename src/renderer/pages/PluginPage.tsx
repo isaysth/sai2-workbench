@@ -1,6 +1,8 @@
 import { useEffect, useState, type MouseEvent, type ReactElement } from 'react'
+import type { AppConfig, OpenerView, RuntimeInfo } from '@shared/types'
 import { SchemaForm } from '../components/SchemaForm'
 import { ContextMenu, type MenuItem } from '../components/ContextMenu'
+import { OpenerSettings } from '../components/OpenerSettings'
 import { usePlugins } from '../store/plugins'
 import type { PluginInfo } from '@shared/plugins'
 
@@ -13,10 +15,15 @@ const STATUS_TEXT: Record<string, string> = {
 
 interface PluginPageProps {
   onToast: (message: string) => void
+  runtime: RuntimeInfo
+  config: AppConfig
+  updateConfig: (key: string, value: unknown) => Promise<void>
+  openers: OpenerView[]
+  refreshOpeners: () => void
 }
 
 /** 插件中心：列表 / 状态 / 装卸 / 自动生成的配置表单 */
-export function PluginPage({ onToast }: PluginPageProps): ReactElement {
+export function PluginPage({ onToast, runtime, config, updateConfig, openers, refreshOpeners }: PluginPageProps): ReactElement {
   const items = usePlugins((s) => s.items)
   const pages = usePlugins((s) => s.pages)
   const selectedId = usePlugins((s) => s.selectedId)
@@ -132,9 +139,22 @@ export function PluginPage({ onToast }: PluginPageProps): ReactElement {
         <br />
         ④ 内置插件不能卸载，系统插件不能禁用。写坏的插件会被隔离到「加载失败」，不会影响主程序。
         <br />
+        ⑤ 「启动悬浮窗」在这里配置：选中它即可设置 SAI2 启动后自动小窗、最小化/关闭到托盘。
+        <br />
         <span className="plugin-notice-warn">
           安全提示：插件是本地可信代码，主进程直接加载 —— 安装即授权。请只安装你信任的插件，本程序无法做到进程级隔离。
         </span>
+        <div className="plugin-notice-dir">插件目录：{runtime.pluginDir}</div>
+      </div>
+
+      <div className="plugin-openers">
+        <OpenerSettings
+          config={config}
+          openers={openers}
+          updateConfig={updateConfig}
+          refreshOpeners={refreshOpeners}
+          toast={onToast}
+        />
       </div>
 
       {loading && items.length === 0 ? <div className="empty-desc">正在读取插件…</div> : null}

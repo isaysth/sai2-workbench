@@ -7,6 +7,7 @@ import type {
   AutoTagRule,
   FileChangeEvent,
   FileMetaEvent,
+  FloatModeState,
   IndexProgress,
   LogEntry,
   OpenerView,
@@ -24,6 +25,8 @@ declare global {
     api: {
       runtime(): Promise<RuntimeInfo>
       windowAction(action: WindowAction): Promise<{ ok: boolean; error?: string }>
+      onFloatChanged(cb: (state: FloatModeState) => void): () => void
+      floatState(): Promise<FloatModeState>
       pickBackground(
         oldName: string
       ): Promise<{ ok: boolean; pending?: string; canceled?: boolean; error?: string }>
