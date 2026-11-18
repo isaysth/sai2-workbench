@@ -21,7 +21,7 @@
 ## 二、怎么验证（3 分钟）
 
 ```bash
-cd C:\Users\11421\Documents\sai2工作台
+cd C:\Users\11421\Documents\sai2工作台\sai2-workbench
 npm run dev          # 开发模式，改代码会自动刷新
 # 或看构建产物：
 npm run build && npx electron .
