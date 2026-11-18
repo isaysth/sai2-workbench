@@ -1,0 +1,11 @@
+{
+  "id": "openers",
+  "name": "多格式打开器",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "用 SAI2 / Photoshop / Clip Studio Paint 打开 .sai2/.sai、.psd/.psb、.clip；路径在设置页填写，可整体启用或禁用。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["openers"]
+}

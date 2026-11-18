@@ -1,0 +1,11 @@
+{
+  "id": "thumbs",
+  "name": "多格式缩略图",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "为 png / jpg / webp、PSD / PSB、SAI2 / SAI 提供缩略图解码；大文件由内核 worker 处理，不卡界面。",
+  "entry": "index.js",
+  "system": false,
+  "inject": ["thumbs", "thumb-kernel"]
+}

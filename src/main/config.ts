@@ -56,6 +56,41 @@ const THEMES: ThemeName[] = ['glass', 'minimal']
 const SCHEMES: ColorScheme[] = ['light', 'dark']
 const BACKGROUNDS: BackgroundMode[] = ['solid', 'image', 'desktop']
 
+/**
+ * 内置插件合并后的禁用名单迁移：旧 id → 新 id（M5/T3）。
+ * opener-sai2/ps/csp 合成 openers，thumb-image/psd/sai2 合成 thumbs。
+ * 组内任一旧插件被禁用 → 新插件默认禁用，避免用户此前关掉某一路能力却在合并后被重新打开。
+ * 迁移后会删掉旧 id，天然只跑一次（幂等），不会覆盖用户之后对新插件的选择。
+ */
+const MERGED_PLUGIN_IDS: Record<string, string> = {
+  'opener-sai2': 'openers',
+  'opener-ps': 'openers',
+  'opener-csp': 'openers',
+  'thumb-image': 'thumbs',
+  'thumb-psd': 'thumbs',
+  'thumb-sai2': 'thumbs'
+}
+
+function migratePluginIds(cfg: AppConfig): boolean {
+  const disabled = cfg.plugins?.disabled
+  if (!Array.isArray(disabled)) return false
+  const next: string[] = []
+  let changed = false
+  for (const id of disabled) {
+    const mapped = typeof id === 'string' ? MERGED_PLUGIN_IDS[id] : undefined
+    if (mapped) {
+      changed = true
+      if (!next.includes(mapped)) next.push(mapped)
+    } else if (typeof id === 'string') {
+      next.push(id)
+    } else {
+      changed = true // 丢弃非法条目
+    }
+  }
+  if (changed) cfg.plugins.disabled = next
+  return changed
+}
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
@@ -197,11 +232,12 @@ export class ConfigStore {
       // 否则合并时会被默认值的字段名绕过，留下一个没人读的孤儿键。
       const migrated = isPlainObject(parsed) ? migrate(parsed) : false
       const cfg = sanitize(mergeDefaults(structuredClone(DEFAULT_CONFIG), parsed))
-      if (migrated) {
+      const merged = migratePluginIds(cfg)
+      if (migrated || merged) {
         const backup = join(dirname(this.file), `config.v${CONFIG_VERSION - 1}.bak`)
         try {
           copyFileSync(this.file, backup)
-          this.log.info('config', `配置已从 v${CONFIG_VERSION - 1} 迁移到 v${CONFIG_VERSION}，原文件备份为 ${backup}`)
+          this.log.info('config', `配置已迁移，原文件备份为 ${backup}`)
         } catch {
           /* 备份失败不该阻塞迁移，最多丢一次回滚机会 */
         }
