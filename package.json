@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "npm run build && electron-builder --win --x64",
-    "dist:dir": "npm run build && electron-builder --win --x64 --dir"
+    "dist:dir": "npm run build && electron-builder --win --x64 --dir",
+    "ship": "node scripts/ship.mjs"
   },
   "dependencies": {
     "ag-psd": "^34.2.1",
