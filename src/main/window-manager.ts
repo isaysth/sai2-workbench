@@ -65,6 +65,8 @@ export interface WindowManagerDeps {
   workArea: () => { x: number; y: number; width: number; height: number }
   broadcast: (channel: string, payload: unknown) => void
   quit: () => void
+  /** 主窗口已被销毁时，由主进程重建并重新 attach */
+  recreateWindow: () => void
 }
 
 const MARGIN = 24
@@ -104,8 +106,11 @@ export class WindowManager {
 
   constructor(private readonly deps: WindowManagerDeps) {}
 
-  /** 主窗口建好后调用一次；负责拦截「关闭」按钮 */
+  /** 主窗口建好后调用；窗口重建后会再次调用，负责拦截「关闭」按钮 */
   attach(win: ManagedWindow): void {
+    // 新窗口不继承旧悬浮态：尺寸、最小尺寸、菜单文案都得从头来
+    this.floatMode = false
+    this.saved = null
     this.win = win
     win.on('close', (e) => {
       if (this.quitting || !this.options().closeToTray) return
@@ -226,6 +231,13 @@ export class WindowManager {
   }
 
   toggleFloat(): void {
+    const win = this.win
+    // 窗口已销毁时这一项以前同样静默失效，重建成普通窗口再让用户自己决定要不要悬浮
+    if (!win || win.isDestroyed()) {
+      this.deps.log.info('window-manager', '主窗口已销毁，重建')
+      this.deps.recreateWindow()
+      return
+    }
     if (this.floatMode) this.exitFloat()
     else this.enterFloat()
   }
@@ -242,7 +254,12 @@ export class WindowManager {
 
   showFromTray(): void {
     const win = this.win
-    if (!win || win.isDestroyed()) return
+    // 关窗后进程仍被托盘保活，此时菜单不能静默失效，必须把窗口重新建出来
+    if (!win || win.isDestroyed()) {
+      this.deps.log.info('window-manager', '主窗口已销毁，重建')
+      this.deps.recreateWindow()
+      return
+    }
     win.setSkipTaskbar(false)
     if (win.isMinimized()) win.restore()
     win.show()
@@ -325,8 +342,10 @@ export class WindowManager {
 
   private refreshTray(): void {
     if (!this.tray) return
+    const alive = this.win !== null && !this.win.isDestroyed()
     const items: TrayMenuItem[] = [
-      { id: 'show', label: '显示主窗口' },
+      // 窗口没了就直说「重新打开」，用户才知道这一项还能点
+      { id: 'show', label: alive ? '显示主窗口' : '重新打开主窗口' },
       { id: 'float', label: this.floatMode ? '展开主界面' : '切换为悬浮窗' }
     ]
     if (this.launchHandler) items.push({ id: 'launch', label: '启动 SAI2' })

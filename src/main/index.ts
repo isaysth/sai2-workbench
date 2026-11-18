@@ -75,6 +75,17 @@ async function bootstrap(): Promise<void> {
   // 原生主题只影响系统对话框与窗口装饰的明暗，跟「玻璃 / 简约」无关
   applyNativeTheme(config.get<string>('general.scheme') ?? 'light')
 
+  const rendererUrl = process.env['ELECTRON_RENDERER_URL']
+  if (rendererUrl) log.info('app', `渲染进程开发服务器：${rendererUrl}`)
+
+  // 主窗口只在启动时建一次的话，关窗后进程被托盘保活、菜单却点不动；
+  // 所以抽成函数交给窗口管理器按需重建，窗口引用也必须可换（currentWin）。
+  let currentWin: BrowserWindow | null = null
+  const openMainWindow = (): void => {
+    currentWin = createMainWindow({ config, log, rendererUrl })
+    wm.attach(currentWin)
+  }
+
   // 窗口管理器独立于插件存在：即使插件没激活，标题栏的窗口按钮也要能用。
   // 托盘、悬浮、最小化行为由 launcher-float 插件通过 configure 注入配置。
   const wm = new WindowManager({
@@ -82,7 +93,8 @@ async function bootstrap(): Promise<void> {
     createTray: createNativeTray,
     workArea: () => screen.getPrimaryDisplay().workArea,
     broadcast: (channel, payload) => broadcast(channel, payload),
-    quit: () => app.quit()
+    quit: () => app.quit(),
+    recreateWindow: openMainWindow
   })
 
   registerAppIpc(runtime, log, paths.backgroundDir, wm)
@@ -280,11 +292,7 @@ async function bootstrap(): Promise<void> {
       })
   })
 
-  const rendererUrl = process.env['ELECTRON_RENDERER_URL']
-  if (rendererUrl) log.info('app', `渲染进程开发服务器：${rendererUrl}`)
-
-  const win = createMainWindow({ config, log, rendererUrl })
-  wm.attach(win)
+  openMainWindow()
 
   // 任何来源的退出（托盘菜单、系统关机、EVAL 调试）都要先打标，
   // 否则 window-all-closed 会误以为这是「关窗口」而继续保活托盘进程。
@@ -302,7 +310,8 @@ async function bootstrap(): Promise<void> {
   // 窗口始终透明，不再有"切主题要开关系统材质"这套逻辑；
   // 只剩一件事：明暗变化时把原生主题同步过去，系统右键菜单之类才不会反色。
   config.onDidChange((key, value) => {
-    if (key !== 'general.scheme' || win.isDestroyed()) return
+    // 这里必须看「当前窗口」：窗口关掉再重建后，旧引用已经是死的
+    if (key !== 'general.scheme' || !currentWin || currentWin.isDestroyed()) return
     applyNativeTheme(String(value))
   })
 

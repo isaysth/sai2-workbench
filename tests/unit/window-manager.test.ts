@@ -12,7 +12,7 @@ function fakeLogger() {
   return { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined }
 }
 
-function fakeWindow() {
+function fakeWindow(init: { destroyed?: boolean } = {}) {
   const calls: string[] = []
   let closeHandler: ((e: { preventDefault: () => void }) => void) | null = null
   let bounds = { x: 100, y: 80, width: 1360, height: 860 }
@@ -24,7 +24,7 @@ function fakeWindow() {
     visible: () => boolean
   } = {
     calls,
-    isDestroyed: () => false,
+    isDestroyed: () => init.destroyed === true,
     isMinimized: () => false,
     isMaximized: () => false,
     getBounds: () => ({ ...bounds }),
@@ -63,8 +63,8 @@ function fakeWindow() {
   return win
 }
 
-function makeManager() {
-  const win = fakeWindow()
+function makeManager(init: { destroyed?: boolean } = {}) {
+  const win = fakeWindow(init)
   let trayItems: TrayMenuItem[] = []
   let destroyed = 0
   const tray: TrayHandle = {
@@ -74,6 +74,7 @@ function makeManager() {
   const broadcasts: Array<{ channel: string; payload: unknown }> = []
   let quits = 0
   let launches = 0
+  let recreates = 0
   let trayHandlers: { onActivate: () => void; onCommand: (id: string) => void } | null = null
   const wm = new WindowManager({
     log: fakeLogger(),
@@ -83,7 +84,8 @@ function makeManager() {
     },
     workArea: () => ({ x: 0, y: 0, width: 1920, height: 1040 }),
     broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
-    quit: () => { quits += 1 }
+    quit: () => { quits += 1 },
+    recreateWindow: () => { recreates += 1 }
   })
   wm.setLaunchHandler(() => { launches += 1 })
   wm.attach(win)
@@ -93,6 +95,7 @@ function makeManager() {
     getDestroyed: () => destroyed,
     getQuits: () => quits,
     getLaunches: () => launches,
+    getRecreates: () => recreates,
     command: (id: string) => trayHandlers?.onCommand(id),
     activate: () => trayHandlers?.onActivate()
   }
@@ -180,5 +183,29 @@ describe('WindowManager 悬浮与托盘', () => {
     expect(m.getQuits()).toBe(1)
     m.wm.dispose()
     expect(m.getDestroyed()).toBe(1)
+  })
+
+  it('窗口已销毁时托盘「打开」改为重建主窗口，不再静默失效', () => {
+    const m = makeManager({ destroyed: true })
+    m.wm.configure(() => ({}))
+    // 窗口没了，首项文案要明说「重新打开」，否则用户不知道还能点
+    expect(m.getItems()[0]).toMatchObject({ id: 'show', label: '重新打开主窗口' })
+
+    expect(() => m.activate()).not.toThrow()
+    expect(m.getRecreates()).toBe(1)
+    // 已销毁的窗口不该再被 show / focus
+    expect(m.win.calls).not.toContain('show')
+    expect(m.win.calls).not.toContain('focus')
+  })
+
+  it('窗口存活时托盘「打开」直接显示，不触发重建', () => {
+    const m = makeManager()
+    m.wm.configure(() => ({}))
+    expect(m.getItems()[0]).toMatchObject({ id: 'show', label: '显示主窗口' })
+
+    m.activate()
+    expect(m.getRecreates()).toBe(0)
+    expect(m.win.calls).toContain('show')
+    expect(m.win.calls).toContain('focus')
   })
 })
