@@ -14,6 +14,15 @@ directories:
 files:
   - out/**/*
   - package.json
+  # 体积裁剪：调试映射表与 V8 编译缓存运行时可再生，不进包
+  - "!**/*.map"
+  - "!**/.v8-cache/**"
+
+# 体积裁剪：Electron 自带 55 个语言包共约 49MB，本产品只面向中文用户，
+# 只留简体中文与英文（系统若有其他语言，Chromium 回退到 en-US）。
+electronLanguages:
+  - zh-CN
+  - en-US
 
 # asar 外的只读资源：跟程序走，不随数据目录回退（见 paths.ts）。
 extraResources:
