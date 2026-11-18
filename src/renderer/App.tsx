@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactElement } from 'react'
 import type { AppConfig, FloatModeState, OpenerView, RuntimeInfo } from '@shared/types'
+import { buildResultMessage, parsePageMessage } from '@shared/plugin-page-bridge'
 import type { PluginPageContribution } from '@shared/plugins'
 import { DetailsPanel } from './components/DetailsPanel'
 import { FloatBar } from './components/FloatBar'
@@ -56,6 +57,46 @@ function pluginPageKey(page: PluginPageContribution): string {
   return `plugin:${page.pluginId}:${page.id}`
 }
 
+/**
+ * 插件贡献的页面。iframe 是 `sandbox="allow-scripts"`（opaque origin），页面里的按钮
+ * 拿不到 `window.api`，只能 postMessage 过来；内核收到
+ * `{ __sai2Page:'action', id }` 后复用现有 `plugin:run-action` 通道执行。
+ */
+function PluginPageFrame({ page }: { page: PluginPageContribution }): ReactElement {
+  const frameRef = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    const onMessage = (e: MessageEvent): void => {
+      const msg = parsePageMessage(e.data)
+      if (!msg) return
+      // 沙箱 iframe 的 event.origin 恒为 'null'，只能比对 contentWindow 认来源
+      if (e.source !== frameRef.current?.contentWindow) return
+      void window.api.plugins
+        .runAction('toolbar', msg.id)
+        .then((res) => {
+          frameRef.current?.contentWindow?.postMessage(buildResultMessage(msg.id, res.ok, res.error), '*')
+        })
+        .catch((err: unknown) => {
+          // IPC 本身失败也要给页面回执，否则按钮会永远停在「执行中」
+          const reason = err instanceof Error ? err.message : String(err)
+          frameRef.current?.contentWindow?.postMessage(buildResultMessage(msg.id, false, reason), '*')
+        })
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+
+  return (
+    <iframe
+      ref={frameRef}
+      className="plugin-page-frame"
+      title={page.title}
+      sandbox="allow-scripts"
+      srcDoc={page.html ?? ''}
+    />
+  )
+}
+
 /** 内置页优先；找不到就按插件贡献的页面渲染一个隔离的 iframe */
 function renderPage(
   page: PageKey,
@@ -72,12 +113,7 @@ function renderPage(
         <div className="page-head">
           <h1 className="page-title">{contributed.title}</h1>
         </div>
-        <iframe
-          className="plugin-page-frame"
-          title={contributed.title}
-          sandbox="allow-scripts"
-          srcDoc={contributed.html ?? ''}
-        />
+        <PluginPageFrame page={contributed} />
       </div>
     )
   }
