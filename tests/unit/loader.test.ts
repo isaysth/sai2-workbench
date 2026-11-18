@@ -44,7 +44,7 @@ interface Harness {
   userDir: string
 }
 
-function harness(): Harness {
+function harness(opts: { isDev?: boolean } = {}): Harness {
   const root = mkdtempSync(join(tmpdir(), 'sai2-plugin-'))
   tempRoots.push(root)
   const builtinDir = join(root, 'builtin')
@@ -63,7 +63,8 @@ function harness(): Harness {
     config,
     loadModule: (entry) => modules.get(entry) ?? { apply: () => undefined },
     createContext: () => ({}),
-    onChanged: () => undefined
+    onChanged: () => undefined,
+    isDevMode: () => opts.isDev === true
   }
   return { loader: new PluginLoader(deps), container, config, modules, builtinDir, userDir }
 }
@@ -149,5 +150,22 @@ describe('PluginLoader', () => {
     await h.loader.initialize()
     expect(h.loader.setEnabled('core', false).ok).toBe(false)
     expect(h.loader.list()[0]?.status).toBe('running')
+  })
+
+  it('开发模式下系统插件可以临时禁用（需求 §5「开发模式下可关」）', async () => {
+    const h = harness({ isDev: true })
+    plugin(h.builtinDir, 'core', { ...base('core'), system: true })
+    await h.loader.initialize()
+    // refresh 是异步的，这里看「禁用名单有没有真的写进去」这条同步结果
+    expect(h.loader.setEnabled('core', false).ok).toBe(true)
+    expect(h.config.values['plugins.disabled']).toContain('core')
+  })
+
+  it('内置缩略图插件是系统插件，正常模式下关不掉', async () => {
+    const h = harness()
+    plugin(h.builtinDir, 'thumbs', { ...base('thumbs'), system: true })
+    await h.loader.initialize()
+    expect(h.loader.list()[0]?.system).toBe(true)
+    expect(h.loader.setEnabled('thumbs', false).ok).toBe(false)
   })
 })

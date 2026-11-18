@@ -42,6 +42,11 @@ export interface PluginLoaderDeps {
   createContext: (plugin: LoadedPlugin, config: Record<string, unknown>) => unknown
   /** 状态发生变化时通知 IPC 广播 */
   onChanged: () => void
+  /**
+   * 是否开发模式。开发模式下允许禁用系统插件 —— 需求文档 §5「系统插件正常界面里不能关，
+   * 开发模式下可关」，否则调缩略图这类东西时没法临时关掉排查。
+   */
+  isDevMode?: () => boolean
 }
 
 const ACTIVATE_TIMEOUT_MS = 3000
@@ -374,7 +379,9 @@ export class PluginLoader {
   setEnabled(id: string, enabled: boolean): PluginResult {
     const plugin = this.plugins.get(id)
     if (!plugin) return { ok: false, error: `插件 ${id} 不存在` }
-    if (!enabled && plugin.info.system) return { ok: false, error: '系统插件不能禁用' }
+    if (!enabled && plugin.info.system && !this.deps.isDevMode?.()) {
+      return { ok: false, error: '系统插件不能禁用' }
+    }
 
     const disabled = this.disabled().filter((v) => v !== id)
     if (!enabled) disabled.push(id)

@@ -121,7 +121,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
           {
             id: 'toggle',
             label: enabled ? '禁用此插件' : '启用此插件',
-            disabled: p.system,
+            disabled: p.system && !runtime.isDev,
             onClick: () => void setEnabled(p.id, !enabled)
           },
           { id: 'reload', label: '重新加载', onClick: () => void reload(p.id) },
@@ -222,15 +222,17 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
               </div>
               {(() => {
                 const enabled = p.status !== 'disabled'
+                // 系统插件正常模式锁死；开发模式下按需求 §5 允许关（主进程也会放行）
+                const locked = p.system && !runtime.isDev
                 return (
                   <button
                     type="button"
                     role="switch"
                     aria-checked={enabled}
                     aria-label={enabled ? `禁用 ${p.name}` : `启用 ${p.name}`}
-                    title={p.system ? '系统插件不能禁用' : enabled ? '点击禁用' : '点击启用'}
+                    title={locked ? '系统插件不能禁用' : enabled ? '点击禁用' : '点击启用'}
                     className={`plugin-switch${enabled ? ' is-on' : ''}`}
-                    disabled={p.system}
+                    disabled={locked}
                     onClick={(e) => {
                       // 否则会顺带选中卡片、跳详情
                       e.stopPropagation()
@@ -259,7 +261,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
               <div className="plugin-detail-actions">
                 <button
                   className="btn is-sm"
-                  disabled={selected.system}
+                  disabled={selected.system && !runtime.isDev}
                   onClick={() => void setEnabled(selected.id, selected.status === 'disabled')}
                 >
                   {selected.status !== 'disabled' ? '禁用' : '启用'}

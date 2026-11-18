@@ -22,6 +22,8 @@ export interface PluginSystemDeps {
   onChanged: () => void
   /** 浮窗工厂；不传则插件无法开浮窗（如单测场景） */
   windowFactory?: WindowFactory
+  /** 开发模式：允许禁用系统插件（见 loader 的 isDevMode） */
+  isDev?: boolean
 }
 
 export class PluginSystem {
@@ -72,7 +74,8 @@ export class PluginSystem {
       config: deps.config,
       loadModule: (entry) => this.host.loadModule(entry),
       createContext: (plugin, cfg) => this.host.createContext(plugin, cfg),
-      onChanged: deps.onChanged
+      onChanged: deps.onChanged,
+      isDevMode: () => deps.isDev === true
     })
 
     // 这两个服务每个插件都能拿，剩下的由主进程在初始化前逐个 provide

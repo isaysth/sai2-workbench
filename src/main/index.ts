@@ -171,6 +171,7 @@ async function bootstrap(): Promise<void> {
     log,
     config,
     paths,
+    isDev,
     windowFactory: createElectronWindowFactory({
       log,
       isDev,
