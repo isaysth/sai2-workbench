@@ -253,7 +253,7 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
       <div className="page-head">
         <div>
           <h1 className="page-title">设置</h1>
-          <p className="page-sub">外观、监听目录、缩略图缓存都能改；画图程序路径在 M3b 接入</p>
+          <p className="page-sub">外观、监听目录、缩略图缓存、数据备份都在这里；画图程序路径在插件中心</p>
         </div>
       </div>
 
@@ -733,6 +733,8 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
           <span className="setting-card-note">
             打开器路径、默认画图程序、启动联动、悬浮窗等行为都由插件提供，
             统一放在插件中心管理，这里不再重复一份。
+            <br />
+            画图程序路径在插件中心 →「多格式打开器」里填（点开这个插件就能看到三个路径）。
           </span>
           <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', marginTop: 8 }}>
             <button className="btn is-sm" onClick={() => goto('plugins')}>

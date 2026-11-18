@@ -175,16 +175,6 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
         <div className="plugin-notice-dir">插件目录：{runtime.pluginDir}</div>
       </div>
 
-      <div className="plugin-openers">
-        <OpenerSettings
-          config={config}
-          openers={openers}
-          updateConfig={updateConfig}
-          refreshOpeners={refreshOpeners}
-          toast={onToast}
-        />
-      </div>
-
       {loading && items.length === 0 ? <div className="empty-desc">正在读取插件…</div> : null}
       {!loading && items.length === 0 ? (
         <div className="empty">
@@ -252,6 +242,25 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
               </div>
             ) : null}
             <div className="plugin-detail-meta">插件目录：{selected.dir}</div>
+
+            {/* openers 的三个路径由内核从主配置读，不是插件私有配置 —— 在它自己的详情里给出，
+                否则「配置」区空着会让人以为这插件没给配置项（N-008） */}
+            {selected.id === 'openers' ? (
+              <>
+                <h3 className="plugin-section-title">路径配置</h3>
+                <OpenerSettings
+                  config={config}
+                  openers={openers}
+                  updateConfig={updateConfig}
+                  refreshOpeners={refreshOpeners}
+                  toast={onToast}
+                />
+                <span className="plugin-detail-desc">
+                  这三个路径存在主配置里（由内核读取），所以下面的「配置」区是空的——
+                  路径改完立刻生效，不需要点保存配置。
+                </span>
+              </>
+            ) : null}
 
             <h3 className="plugin-section-title">配置</h3>
             <SchemaForm

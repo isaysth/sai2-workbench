@@ -26,8 +26,8 @@ export function LaunchPage({
 
   const launch = (): void => {
     if (!configured) {
-      toast('还没填画图程序路径，先去设置里填一下')
-      goto('settings')
+      toast('还没填画图程序路径：去插件中心点开「多格式打开器」，下面就是三个路径')
+      goto('plugins')
       return
     }
     onLaunch()
@@ -40,15 +40,15 @@ export function LaunchPage({
         <h1 className="launch-h1">把稿子摊开，一眼找到要画的那张</h1>
         <p className="launch-desc">
           文件夹里的新稿启动时会扫一遍，缩略图直接出；右键或双击就能交给画图程序。
-          默认打开器可以在设置里换，侧栏按钮和双击行为会一起跟着变。
+          默认打开器在插件中心的「多格式打开器」里换，侧栏按钮和双击行为会一起跟着变。
         </p>
         <div className="launch-actions">
           <button className="launch-main" onClick={launch}>
             <IconLaunch size={16} />
             {current ? `启动 ${current.label}` : '启动画图程序'}
           </button>
-          <button className="btn" onClick={() => goto('settings')}>
-            打开设置
+          <button className="btn" onClick={() => goto('plugins')}>
+            打开插件中心
           </button>
           <button className="btn" onClick={() => goto('logs')}>
             查看日志
@@ -66,7 +66,7 @@ export function LaunchPage({
                 {o.current ? '（默认）' : ''}
               </div>
               <div className="tile-desc" style={{ wordBreak: 'break-all' }}>
-                {o.ready ? o.path : o.path ? `路径不存在：${o.path}` : '未填路径，去设置里选程序'}
+                {o.ready ? o.path : o.path ? `路径不存在：${o.path}` : '未填路径，去插件中心选程序'}
               </div>
             </div>
           ))
