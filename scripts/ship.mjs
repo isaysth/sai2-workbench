@@ -251,7 +251,7 @@ log(`整包完成：${mb(full.size)}，${full.count} 个文件`)
 step('打包：增量升级包')
 
 const stagingRoot = path.join(DIST, 'patch-stage', `sai2工作台-${ver}-增量升级包`)
-fs.mkdirSync(path.join(stagingRoot, 'resources'), { recursive: true })
+fs.mkdirSync(stagingRoot, { recursive: true })
 
 const builtinSrc = path.join(UNPACKED, 'resources', 'builtin-plugins')
 const builtinFiles = fs.existsSync(builtinSrc) ? walkFiles(builtinSrc) : []
@@ -266,6 +266,8 @@ const keepRels = new Set([
   ...builtinFiles.map((f) => `resources/builtin-plugins/${f.rel}`)
 ])
 pruneExtras(stagingRoot, keepRels)
+// pruneExtras 会顺手删掉空目录（包括上面刚建好的 resources），这里补建一次再拷 asar
+fs.mkdirSync(path.join(stagingRoot, 'resources'), { recursive: true })
 
 fs.copyFileSync(APP_ASAR, path.join(stagingRoot, 'resources', 'app.asar'))
 if (builtinFiles.length) copyDir(builtinSrc, path.join(stagingRoot, 'resources', 'builtin-plugins'))

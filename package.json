@@ -1,6 +1,6 @@
 {
   "name": "sai2-workbench",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "sai2工作台 —— 免安装的 SAI2 / PSD 工程文件浏览器与启动台",
   "main": "out/main/index.js",
   "license": "MIT",
