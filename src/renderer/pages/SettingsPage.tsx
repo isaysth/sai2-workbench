@@ -75,6 +75,8 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
     return q && q.startsWith('.pending-') ? q : null
   })
   const [applying, setApplying] = useState(false)
+  // 升级包交给主进程后本进程马上会退出，按钮一直禁用，免得用户以为没反应又点一次
+  const [updating, setUpdating] = useState(false)
 
   const tags = useMeta((s) => s.tags)
   const rules = useMeta((s) => s.rules)
@@ -187,6 +189,23 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
         return
       }
       toast(`已恢复 ${res.restored ?? 0} 项数据，程序马上重启`)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  /** 升级：主进程负责选包、校验、写替换脚本，成功后 1.2 秒退出并由脚本拉起新版本 */
+  const applyUpdate = async (): Promise<void> => {
+    setBusy('update')
+    try {
+      const res = await window.api.update.apply()
+      if (res.canceled) return
+      if (!res.ok) {
+        toast(res.error ?? '升级失败')
+        return
+      }
+      setUpdating(true)
+      toast(`升级包已就绪（v${res.from} → v${res.to}），正在重启完成替换…`)
     } finally {
       setBusy('')
     }
@@ -770,6 +789,31 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
           <span className="setting-card-note">
             恢复会用备份替换当前的索引与设置，现有数据自动改名留底（后缀 <code>.bak-时间</code>），
             不会直接删除；画布原文件不受影响。恢复完成后程序会自动重启。
+          </span>
+        </section>
+
+        <section className="setting-card">
+          <div className="setting-card-head">
+            <span className="setting-card-title">程序更新</span>
+            <span className="setting-card-note">增量升级包 · 不动数据</span>
+          </div>
+          <span className="setting-card-note">
+            选一个 <code>sai2工作台-x.y.z-增量升级包.zip</code>，程序会自己校验版本、文件清单和
+            SHA256，然后退出并由一个临时脚本把新文件搬到位、再自动启动新版。
+            稿件、标签、配置、插件都不动；旧版本会自动留一份 <code>app.asar.bak-时间</code>。
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', marginTop: 8 }}>
+            <button
+              className="btn is-sm"
+              disabled={busy === 'update' || updating}
+              onClick={() => void applyUpdate()}
+            >
+              {busy === 'update' ? '正在校验…' : updating ? '正在重启…' : '选择升级包并更新'}
+            </button>
+          </div>
+          <span className="setting-card-note">
+            校验不通过会直接拒绝，一个文件都不会动。升级包必须比当前版本新；
+            如果程序装在 Program Files 这类不可写的位置，请改用整包升级。
           </span>
         </section>
 

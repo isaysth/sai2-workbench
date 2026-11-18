@@ -19,6 +19,7 @@ import type {
   RuntimeInfo,
   Tag,
   ThumbCacheStats,
+  UpdateApplyResult,
   WindowAction
 } from '@shared/types'
 import type { PluginInfo, PluginPageContribution, PluginResult, PluginSnapshotPayload } from '@shared/plugins'
@@ -119,6 +120,9 @@ declare global {
         export(): Promise<DataBackupResult>
         import(): Promise<DataRestoreResult>
         openDir(): Promise<{ ok: boolean; error?: string }>
+      }
+      update: {
+        apply(): Promise<UpdateApplyResult>
       }
       plugins: {
         list(): Promise<PluginSnapshotPayload>

@@ -287,3 +287,19 @@ export interface DataRestoreResult {
   /** 恢复成功后程序会自动重启 */
   restarting?: boolean
 }
+
+/**
+ * 应用增量升级包的结果（设置页「选择升级包并更新」）。
+ * ok=true 表示已写好替换脚本，程序即将退出重启；真正搬文件发生在进程退出之后。
+ */
+export interface UpdateApplyResult {
+  ok: boolean
+  /** 用户在选文件对话框里取消 */
+  canceled?: boolean
+  /** 拒绝原因（中文，直接 toast 给用户看） */
+  error?: string
+  /** 升级前版本 */
+  from?: string
+  /** 升级包里的版本 */
+  to?: string
+}

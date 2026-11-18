@@ -94,6 +94,9 @@ export const CH = {
   /** 打开数据目录（无入参，主进程锁死为 dataDir） */
   dataOpenDir: 'data:open-dir',
 
+  /** 应用增量升级包：选 zip → 校验 → 退出进程由脚本替换 → 重启 */
+  updateApply: 'update:apply',
+
   /** 插件清单（含状态与配置 schema） */
   pluginList: 'plugin:list',
   /** 从文件夹或 zip 安装插件，payload = { mode: 'folder' | 'zip' } */

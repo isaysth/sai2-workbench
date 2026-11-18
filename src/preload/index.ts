@@ -17,6 +17,7 @@ import type {
   RuntimeInfo,
   Tag,
   ThumbCacheStats,
+  UpdateApplyResult,
   WindowAction
 } from '@shared/types'
 import type { PluginResult, PluginSnapshotPayload } from '@shared/plugins'
@@ -221,6 +222,11 @@ const api = {
     import: (): Promise<DataRestoreResult> => ipcRenderer.invoke(CH.dataImport),
     /** 打开固定数据目录（无入参，主进程锁死路径） */
     openDir: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(CH.dataOpenDir)
+  },
+
+  /** 程序更新：选增量升级包，主进程校验后退出并由脚本完成替换 */
+  update: {
+    apply: (): Promise<UpdateApplyResult> => ipcRenderer.invoke(CH.updateApply)
   },
 
   /** 插件中心：列表 / 装卸 / 配置（M3a） */

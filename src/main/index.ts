@@ -1,5 +1,6 @@
-import { app, BrowserWindow, screen } from 'electron'
-import { basename } from 'node:path'
+import { app, BrowserWindow, dialog, screen } from 'electron'
+import { readdirSync, readFileSync, rmSync, type Dirent } from 'node:fs'
+import { basename, join } from 'node:path'
 import { CH } from '@shared/channels'
 import type { FileChangeEvent, RuntimeInfo } from '@shared/types'
 import { ConfigStore } from './config'
@@ -16,6 +17,7 @@ import { registerOpenersIpc, spawnDetached } from './ipc/openers.ipc'
 import { registerPluginsIpc } from './ipc/plugins.ipc'
 import { registerTagsIpc } from './ipc/tags.ipc'
 import { registerThemeIpc } from './ipc/theme.ipc'
+import { registerUpdateIpc } from './ipc/update.ipc'
 import { broadcast } from './ipc/broadcast'
 import { OpenersService } from './openers/service'
 import { PluginSystem } from './plugins'
@@ -32,6 +34,44 @@ import { createNativeTray } from './tray'
 import { WindowManager } from './window-manager'
 import { createMainWindow } from './window'
 
+/**
+ * 增量升级的收尾：扫程序目录下的 `.patch-*`。
+ *   apply.log = ok    → 脚本搬完了，整个临时目录删掉（payload/backup 约 18MB）
+ *   failed / 缺失     → 说明上次没成，目录留着当证据，返回给启动流程提示用户
+ * 只认 `.patch-` 前缀的目录，绝不碰 data/、plugins/ 这些用户资产。
+ */
+function sweepPatchDirs(rootDir: string, log: Logger): string[] {
+  const failures: string[] = []
+  let items: Dirent[] = []
+  try {
+    items = readdirSync(rootDir, { withFileTypes: true })
+  } catch {
+    return failures
+  }
+  for (const item of items) {
+    if (!item.isDirectory() || !item.name.startsWith('.patch-')) continue
+    const dir = join(rootDir, item.name)
+    let mark = ''
+    try {
+      mark = readFileSync(join(dir, 'apply.log'), 'utf8').trim()
+    } catch {
+      mark = ''
+    }
+    if (mark.startsWith('ok')) {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+        log.info('update', `上次升级已完成，清理临时目录 ${item.name}`)
+      } catch (err) {
+        log.warn('update', `清理升级临时目录失败（不影响使用）：${String(err)}`)
+      }
+      continue
+    }
+    log.warn('update', mark ? `上次升级失败（${mark}）：${dir}` : `上次升级没跑完（没有 apply.log）：${dir}`)
+    failures.push(dir)
+  }
+  return failures
+}
+
 /** 启动序列（开发文档 §4.3）：路径 → 配置 → 日志 → 平台能力 → IPC → 窗口 */
 async function bootstrap(): Promise<void> {
   const paths = resolvePaths()
@@ -41,6 +81,9 @@ async function bootstrap(): Promise<void> {
   log.info('app', `sai2工作台启动 v${app.getVersion()}（${isDev ? '开发模式' : '正式版'}）`)
   log.info('app', `程序目录：${paths.rootDir}`)
   log.info('app', `数据目录：${paths.dataDir}（${paths.portable ? '便携模式' : '回退到用户目录'}）`)
+
+  // 增量升级的收尾：成功过的临时目录直接删，失败过的等窗口出来后提示一次
+  const failedPatches = sweepPatchDirs(paths.rootDir, log)
 
   const config = new ConfigStore(paths.dataDir, log)
 
@@ -245,6 +288,15 @@ async function bootstrap(): Promise<void> {
     shutdown: shutdownCore
   })
 
+  // 增量升级：校验通过后先返回结果给渲染端，1.2 秒后再关库、拉起替换脚本并退出。
+  // 替换由独立 PowerShell 完成 —— 运行中的进程持有 app.asar 句柄，进程内改不了。
+  registerUpdateIpc({
+    paths,
+    log,
+    version: app.getVersion(),
+    shutdown: shutdownCore
+  })
+
   serveImageProtocol({
     backgroundDir: paths.backgroundDir,
     thumbCacheDir: paths.thumbCacheDir,
@@ -311,6 +363,18 @@ async function bootstrap(): Promise<void> {
   })
 
   openMainWindow()
+
+  // 上次升级没成功时只提示一次，别让用户以为程序坏了
+  if (failedPatches.length > 0) {
+    void dialog.showMessageBox({
+      type: 'warning',
+      title: '上次更新没有完成',
+      message: '上次更新失败，已自动还原到原版本',
+      detail: `升级现场留在程序目录里（可以删掉，或发给维护者排查）：\n${failedPatches.join('\n')}`,
+      buttons: ['知道了'],
+      noLink: true
+    })
+  }
 
   // 任何来源的退出（托盘菜单、系统关机、EVAL 调试）都要先打标，
   // 否则 window-all-closed 会误以为这是「关窗口」而继续保活托盘进程。
