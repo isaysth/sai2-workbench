@@ -3,6 +3,7 @@ import { CH } from '@shared/channels'
 import type {
   AppConfig,
   AutoTagRule,
+  BallSkin,
   DataBackupResult,
   DataRestoreResult,
   FileChangeEvent,
@@ -45,6 +46,20 @@ const api = {
     const handler = (_e: unknown, state: FloatModeState): void => cb(state)
     ipcRenderer.on(CH.windowFloatChanged, handler)
     return () => ipcRenderer.off(CH.windowFloatChanged, handler)
+  },
+
+  /**
+   * 悬浮球页面专用的最小接口（悬浮球窗口加载的是同一个 preload）。
+   * 一律用 send：球页面不需要返回值，主进程也不该为一次点击多走一趟 invoke。
+   */
+  ball: {
+    action: (kind: 'expand' | 'reset' | 'menu'): void => ipcRenderer.send(CH.ballAction, kind),
+    drag: (pos: { x: number; y: number }): void => ipcRenderer.send(CH.ballDrag, pos),
+    onSkin: (fn: (skin: BallSkin) => void): (() => void) => {
+      const handler = (_e: unknown, skin: BallSkin): void => fn(skin)
+      ipcRenderer.on(CH.ballSkin, handler)
+      return () => ipcRenderer.off(CH.ballSkin, handler)
+    }
   },
 
   /**

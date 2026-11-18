@@ -19,9 +19,11 @@ export interface FloatOptions {
   minimizeToTray: boolean
   /** 关闭按钮改为收进托盘（不退出） */
   closeToTray: boolean
-  /** 悬浮窗尺寸 */
+  /** 悬浮窗尺寸（已废弃：现在收成悬浮球，宽高不再生效，保留键兼容老配置） */
   floatWidth: number
   floatHeight: number
+  /** 悬浮球直径 48~160（取代 floatWidth / floatHeight） */
+  ballSize: number
   /** 悬浮窗置顶 */
   alwaysOnTop: boolean
 }
@@ -32,6 +34,7 @@ export const DEFAULT_FLOAT_OPTIONS: FloatOptions = {
   closeToTray: false,
   floatWidth: 336,
   floatHeight: 132,
+  ballSize: 88,
   alwaysOnTop: true
 }
 
@@ -56,6 +59,15 @@ export interface ManagedWindow {
   on(event: 'close', listener: (e: { preventDefault: () => void }) => void): void
 }
 
+/** 悬浮球的控制面（真实实现是 float-ball.ts 的 FloatBall，单测注入假对象） */
+export interface BallControl {
+  show(): void
+  hide(): void
+  isVisible(): boolean
+  resetPosition(): void
+  dispose(): void
+}
+
 export interface WindowManagerDeps {
   log: Logger
   createTray: (handlers: {
@@ -67,9 +79,8 @@ export interface WindowManagerDeps {
   quit: () => void
   /** 主窗口已被销毁时，由主进程重建并重新 attach */
   recreateWindow: () => void
+  ball: BallControl
 }
-
-const MARGIN = 24
 
 function clampInt(value: unknown, fallback: number, min: number, max: number): number {
   const n = Number(value)
@@ -85,6 +96,7 @@ export function normalizeFloatOptions(raw: unknown): FloatOptions {
     closeToTray: o.closeToTray === true,
     floatWidth: clampInt(o.floatWidth, DEFAULT_FLOAT_OPTIONS.floatWidth, 240, 560),
     floatHeight: clampInt(o.floatHeight, DEFAULT_FLOAT_OPTIONS.floatHeight, 100, 260),
+    ballSize: clampInt(o.ballSize, DEFAULT_FLOAT_OPTIONS.ballSize, 48, 160),
     alwaysOnTop: o.alwaysOnTop !== false
   }
 }
@@ -95,6 +107,8 @@ export class WindowManager {
   private configured: (() => unknown) | null = null
   private floatMode = false
   private quitting = false
+  /** 窗口销毁时点过「收成悬浮球」，等 attach 建好窗口再进 */
+  private pendingBall = false
   private launchHandler: (() => void) | null = null
 
   private saved: {
@@ -108,7 +122,7 @@ export class WindowManager {
 
   /** 主窗口建好后调用；窗口重建后会再次调用，负责拦截「关闭」按钮 */
   attach(win: ManagedWindow): void {
-    // 新窗口不继承旧悬浮态：尺寸、最小尺寸、菜单文案都得从头来
+    // 新窗口不继承旧悬浮态：菜单文案、托盘状态都得从头来
     this.floatMode = false
     this.saved = null
     this.win = win
@@ -118,6 +132,11 @@ export class WindowManager {
       this.hideToTray()
     })
     this.refreshTray()
+    // 窗口销毁状态下点过「收成悬浮球」：重建后立刻补进球模式，而不是停在普通窗口
+    if (this.pendingBall) {
+      this.pendingBall = false
+      this.enterFloat()
+    }
   }
 
   /** 托盘菜单里的「启动 SAI2」由主进程注入，避免管理器反向依赖打开器服务 */
@@ -187,7 +206,6 @@ export class WindowManager {
   enterFloat(): void {
     const win = this.win
     if (!win || win.isDestroyed() || this.floatMode) return
-    const o = this.options()
     const bounds = win.getNormalBounds()
     const [minW = 0, minH = 0] = win.getMinimumSize()
     this.saved = {
@@ -197,44 +215,52 @@ export class WindowManager {
       alwaysOnTop: false,
       maximized: win.isMaximized()
     }
-    const area = this.deps.workArea()
-    const w = Math.min(o.floatWidth, Math.max(240, area.width - 32))
-    const h = Math.min(o.floatHeight, Math.max(100, area.height - 32))
-    const x = Math.max(area.x + 8, area.x + area.width - w - MARGIN)
-    const y = Math.max(area.y + 8, area.y + MARGIN)
-
     try {
-      win.setMinimumSize(0, 0)
-      win.setBounds({ x, y, width: w, height: h })
-      win.setAlwaysOnTop(o.alwaysOnTop, 'floating')
+      // 球是独立窗口：主窗口整体让位（连任务栏一起收），不再缩成小窗
+      win.setSkipTaskbar(true)
+      win.hide()
       this.floatMode = true
-      if (win.isMinimized()) win.restore()
-      win.show()
-      win.focus()
-      this.deps.log.info('window-manager', `已进入悬浮窗 ${w}×${h}`)
+      this.deps.ball.show()
+      this.deps.log.info('window-manager', `已收成悬浮球（直径 ${this.options().ballSize}px）`)
       this.refreshTray()
       this.broadcastState()
     } catch (err) {
-      // 半途失败要恢复原状，别把用户主窗口弄成一条缝
+      // 半途失败要恢复原状，别把主窗口藏起来又没球可点
+      this.floatMode = false
       this.restoreSaved()
-      this.deps.log.warn('window-manager', `进入悬浮窗失败：${String(err)}`)
+      try {
+        win.setSkipTaskbar(false)
+        win.show()
+      } catch {
+        /* 恢复失败也不再抛，下面只记日志 */
+      }
+      this.deps.log.warn('window-manager', `收成悬浮球失败：${String(err)}`)
     }
   }
 
   exitFloat(): void {
     if (!this.floatMode) return
     this.floatMode = false
-    this.restoreSaved()
-    this.deps.log.info('window-manager', '已还原主窗口')
+    this.deps.ball.hide()
+    const win = this.win
+    if (win && !win.isDestroyed()) {
+      win.setSkipTaskbar(false)
+      this.restoreSaved()
+      win.show()
+      win.focus()
+    }
+    this.deps.log.info('window-manager', '已展开主界面')
     this.refreshTray()
     this.broadcastState()
   }
 
   toggleFloat(): void {
     const win = this.win
-    // 窗口已销毁时这一项以前同样静默失效，重建成普通窗口再让用户自己决定要不要悬浮
+    // 窗口已销毁时不能只重建普通窗口：用户点的是「收成悬浮球」，
+    // 重建完必须立刻进球模式，否则得到的还是一个普通窗口（N-027）。
     if (!win || win.isDestroyed()) {
-      this.deps.log.info('window-manager', '主窗口已销毁，重建')
+      this.deps.log.info('window-manager', '主窗口已销毁，重建后进入球模式')
+      this.pendingBall = true
       this.deps.recreateWindow()
       return
     }
@@ -258,6 +284,11 @@ export class WindowManager {
     if (!win || win.isDestroyed()) {
       this.deps.log.info('window-manager', '主窗口已销毁，重建')
       this.deps.recreateWindow()
+      return
+    }
+    // 球还浮着时点「显示主窗口」= 展开，不能留下球 + 窗口两套界面
+    if (this.floatMode) {
+      this.exitFloat()
       return
     }
     win.setSkipTaskbar(false)
@@ -285,6 +316,7 @@ export class WindowManager {
 
   dispose(): void {
     this.destroyTray()
+    this.deps.ball.dispose()
     this.win = null
     this.configured = null
   }
@@ -346,11 +378,11 @@ export class WindowManager {
     const items: TrayMenuItem[] = [
       // 窗口没了就直说「重新打开」，用户才知道这一项还能点
       { id: 'show', label: alive ? '显示主窗口' : '重新打开主窗口' },
-      { id: 'float', label: this.floatMode ? '展开主界面' : '切换为悬浮窗' }
+      { id: 'float', label: this.floatMode ? '展开主界面' : '收成悬浮球' }
     ]
     if (this.launchHandler) items.push({ id: 'launch', label: '启动 SAI2' })
     items.push({ id: 'sep', label: '', separator: true }, { id: 'quit', label: '退出工作台' })
-    this.tray.setItems(items, this.floatMode ? 'sai2工作台 · 悬浮中' : 'sai2工作台')
+    this.tray.setItems(items, this.floatMode ? 'sai2工作台 · 球已浮起' : 'sai2工作台')
   }
 
   private broadcastState(): void {

@@ -210,6 +210,10 @@ export interface AppConfig {
     splitterLeft: number
     splitterRight: number
     windowBounds: WindowBounds | null
+    /** 悬浮球上次停留的位置（屏幕坐标，左上角）。越界时恢复会复位到右上角 */
+    ballPosition?: BallPosition | null
+    /** 悬浮球皮肤：'orange'（内置橙子切片）或用户皮肤目录的绝对路径 */
+    ballSkin?: string
   }
   plugins: {
     disabled: string[]
@@ -260,6 +264,24 @@ export interface FloatModeState {
   active: boolean
   width: number
   height: number
+}
+
+/** 悬浮球位置（屏幕坐标，球窗口左上角） */
+export interface BallPosition {
+  x: number
+  y: number
+}
+
+/**
+ * 悬浮球皮肤。svg 与 image 二选一：
+ * - svg   = 内置皮肤直接给整段 SVG 字符串（页面 innerHTML 注入）
+ * - image = 用户皮肤给 dataURI（nativeImage 读盘转码，运行时读，不进 asar）
+ */
+export interface BallSkin {
+  svg?: string
+  image?: string
+  /** 球直径（px），窗口与页面同时按它排版 */
+  size: number
 }
 
 /** 导出数据备份的结果（设置页「备份数据」按钮） */

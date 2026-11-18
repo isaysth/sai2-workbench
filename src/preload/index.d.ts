@@ -5,6 +5,7 @@
 import type {
   AppConfig,
   AutoTagRule,
+  BallSkin,
   DataBackupResult,
   DataRestoreResult,
   FileChangeEvent,
@@ -31,6 +32,11 @@ declare global {
       windowAction(action: WindowAction): Promise<{ ok: boolean; error?: string }>
       onFloatChanged(cb: (state: FloatModeState) => void): () => void
       floatState(): Promise<FloatModeState>
+      ball: {
+        action(kind: 'expand' | 'reset' | 'menu'): void
+        drag(pos: { x: number; y: number }): void
+        onSkin(fn: (skin: BallSkin) => void): () => void
+      }
       app: {
         restart(): Promise<{ ok: boolean; error?: string }>
       }

@@ -122,6 +122,14 @@ export function IconRefresh(p: IconProps): ReactElement {
   )
 }
 
+export function IconCaretDown(p: IconProps): ReactElement {
+  return (
+    <Svg {...p} size={p.size ?? 12}>
+      <path d="M7 10l5 5 5-5" />
+    </Svg>
+  )
+}
+
 export function IconFolder(p: IconProps): ReactElement {
   return (
     <Svg {...p} size={p.size ?? 22}>

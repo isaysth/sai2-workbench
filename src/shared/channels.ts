@@ -121,7 +121,14 @@ export const CH = {
   /** 触发插件注册的菜单 / 工具栏动作 */
   pluginRunAction: 'plugin:run-action',
   /** 插件浮窗 → 插件的消息（payload = { pluginId, message }） */
-  pluginWindowMessage: 'plugin:window-message'
+  pluginWindowMessage: 'plugin:window-message',
+
+  /** 悬浮球操作：渲染端 → 主进程，payload = 'expand' | 'reset' | 'menu' */
+  ballAction: 'ball:action',
+  /** 拖动悬浮球：渲染端 → 主进程，payload = { x, y }（当前屏幕坐标） */
+  ballDrag: 'ball:drag',
+  /** 皮肤热更新：主进程 → 渲染端，payload = BallSkin */
+  ballSkin: 'ball:skin'
 } as const
 
 export type ChannelKey = keyof typeof CH

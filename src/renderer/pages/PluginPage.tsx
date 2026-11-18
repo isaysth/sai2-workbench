@@ -1,7 +1,15 @@
-import { useEffect, useState, type MouseEvent, type ReactElement } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  type ReactElement
+} from 'react'
 import type { AppConfig, OpenerView, RuntimeInfo } from '@shared/types'
 import { SchemaForm } from '../components/SchemaForm'
 import { ContextMenu, type MenuItem } from '../components/ContextMenu'
+import { IconCaretDown } from '../components/Icons'
 import { OpenerSettings } from '../components/OpenerSettings'
 import { usePlugins } from '../store/plugins'
 import type { PluginInfo } from '@shared/plugins'
@@ -41,6 +49,11 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
   const [draft, setDraft] = useState<Record<string, unknown>>({})
   const [dirty, setDirty] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; plugin: PluginInfo } | null>(null)
+  // 「安装插件 ▾」分裂菜单（D-019：原来并排的 3 个安装/打开按钮合并到这里）
+  const [installOpen, setInstallOpen] = useState(false)
+  const splitRef = useRef<HTMLDivElement | null>(null)
+  const installToggleRef = useRef<HTMLButtonElement | null>(null)
+  const installMenuRef = useRef<HTMLDivElement | null>(null)
   const selected = items.find((p) => p.id === selectedId) ?? null
 
   // 目录里发现新 zip → 询问是否安装；确定后逐个装，结果用 toast 汇总
@@ -56,7 +69,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
           const res = await installZipPath(path)
           if (res.ok) {
             const id = res.id ? ` ${res.id}` : ''
-            onToast(`已安装插件${id}，若界面没变化请点「重启工作台」`)
+            onToast(`已安装插件${id}，若界面没变化请点标题栏右上角的「重启」`)
           } else onToast(`安装失败：${res.error ?? '未知原因'}`)
         }
         await load()
@@ -81,16 +94,66 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
     }
   }, [selectedId, revision])
 
+  // 分裂菜单的关闭语义与 ContextMenu 一致：点别处 / 窗口失焦关闭
+  useEffect(() => {
+    if (!installOpen) return
+    const onDown = (e: globalThis.MouseEvent): void => {
+      if (splitRef.current && !splitRef.current.contains(e.target as Node)) setInstallOpen(false)
+    }
+    const onBlur = (): void => setInstallOpen(false)
+    // 捕获阶段：避免同一次 mousedown 又让触发按钮把菜单重新打开
+    window.addEventListener('mousedown', onDown, true)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [installOpen])
+
+  // 打开后焦点落到第一项，键盘用户不必先 Tab 一圈（Enter/空格在按钮上是原生 click）
+  useEffect(() => {
+    if (!installOpen) return
+    installMenuRef.current?.querySelector<HTMLButtonElement>('.context-item')?.focus()
+  }, [installOpen])
+
   const doInstall = async (mode: 'folder' | 'zip'): Promise<void> => {
     await install(mode)
     onToast(mode === 'zip' ? '已处理 zip 安装包' : '已处理插件目录')
   }
 
-  /** 重启要用户确认一次：没保存的配置 / 正在跑的任务都会丢 */
-  const restartApp = async (): Promise<void> => {
-    if (!window.confirm('重启工作台？未保存的改动会丢失。')) return
-    const res = await window.api.app.restart()
-    onToast(res.ok ? '正在重启工作台…' : (res.error ?? '重启失败'))
+  const pickInstall = (action: 'zip' | 'folder' | 'dir'): void => {
+    setInstallOpen(false)
+    if (action === 'dir') {
+      void openDir().then((ok) => onToast(ok ? '已打开插件目录，把 zip 放进去即可' : '打开插件目录失败'))
+    } else void doInstall(action)
+  }
+
+  /** 菜单内方向键 / Home / End 移动焦点，Esc 关闭并把焦点还给触发按钮 */
+  const onInstallMenuKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setInstallOpen(false)
+      installToggleRef.current?.focus()
+      return
+    }
+    if (e.key === 'Tab') {
+      // 不拦 Tab：先让浏览器把焦点移出去，再卸载菜单，否则焦点会掉到 body
+      setTimeout(() => setInstallOpen(false), 0)
+      return
+    }
+    const list = Array.from(
+      installMenuRef.current?.querySelectorAll<HTMLButtonElement>('.context-item') ?? []
+    )
+    if (list.length === 0) return
+    const idx = list.indexOf(document.activeElement as HTMLButtonElement)
+    let next: number | null = null
+    if (e.key === 'ArrowDown') next = idx < 0 ? 0 : (idx + 1) % list.length
+    else if (e.key === 'ArrowUp') next = idx <= 0 ? list.length - 1 : idx - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = list.length - 1
+    if (next === null) return
+    e.preventDefault()
+    list[next].focus()
   }
 
   const save = async (): Promise<void> => {
@@ -154,15 +217,59 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
           </p>
         </div>
         <div className="plugin-head-actions">
-          <button
-            className="btn is-sm is-primary"
-            onClick={() => void openDir().then((ok) => onToast(ok ? '已打开插件目录，把 zip 放进去即可' : '打开插件目录失败'))}
-          >
-            打开插件目录
-          </button>
-          <button className="btn is-sm" onClick={() => void doInstall('folder')}>从文件夹安装</button>
-          <button className="btn is-sm" onClick={() => void doInstall('zip')}>从 zip 安装</button>
-          <button className="btn is-sm is-ghost" onClick={() => void restartApp()}>重启工作台</button>
+          <div className="btn-split" ref={splitRef}>
+            <button
+              className="btn is-sm is-primary"
+              title="选择 zip 安装包安装"
+              onClick={() => {
+                setInstallOpen(false)
+                void doInstall('zip')
+              }}
+            >
+              安装插件
+            </button>
+            <button
+              ref={installToggleRef}
+              type="button"
+              className="btn is-sm is-primary btn-split-toggle"
+              aria-haspopup="menu"
+              aria-expanded={installOpen}
+              aria-label="更多安装方式"
+              title="更多安装方式"
+              onClick={() => setInstallOpen((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setInstallOpen(true)
+                } else if (e.key === 'Escape' && installOpen) {
+                  e.preventDefault()
+                  setInstallOpen(false)
+                }
+              }}
+            >
+              <IconCaretDown />
+            </button>
+            {installOpen ? (
+              <div
+                ref={installMenuRef}
+                className="context-menu btn-split-menu"
+                role="menu"
+                aria-label="安装方式"
+                onKeyDown={onInstallMenuKeyDown}
+              >
+                <button role="menuitem" className="context-item" onClick={() => pickInstall('zip')}>
+                  从 zip 安装
+                </button>
+                <button role="menuitem" className="context-item" onClick={() => pickInstall('folder')}>
+                  从文件夹安装
+                </button>
+                <div className="context-sep" />
+                <button role="menuitem" className="context-item" onClick={() => pickInstall('dir')}>
+                  打开插件目录
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button className="btn is-sm is-ghost" onClick={() => void load()}>刷新</button>
         </div>
       </div>
@@ -170,11 +277,11 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
       <div className="plugin-notice">
         <b>使用说明</b>
         <br />
-        ① 推荐：点右上角「打开插件目录」，把插件 zip 丢进去，工作台会自动发现并询问是否安装（确定即装）；也可点「刷新」重新扫描。
+        ① 推荐：点右上角「安装插件 ▾」→「打开插件目录」，把插件 zip 丢进去，工作台会自动发现并询问是否安装（确定即装）；也可点「刷新」重新扫描。
         <br />
-        ② 传统方式：「从 zip 安装」/「从文件夹安装」手动选择；安装后自动启用。已安装插件的同名 zip 不再重复询问。
+        ② 传统方式：点「安装插件」直接选 zip 包；「安装插件 ▾」里也可「从文件夹安装」。安装后自动启用。已安装插件的同名 zip 不再重复询问。
         <br />
-        ③ 在左侧列表点选一个插件查看状态、说明与配置；卡片右侧的开关可直接启用/禁用，系统插件（如内核服务）的开关为灰色不可点。右键列表项还可快速启用/禁用、重载、复制 ID 或卸载。
+        ③ 在左侧列表点选一个插件查看状态、说明与配置；卡片右侧的开关可直接启用/禁用，系统插件（如缩略图服务）的开关为灰色不可点。右键列表项还可快速启用/禁用、重载、复制 ID 或卸载。
         <br />
         ④ 改完配置记得点「保存配置」；FX Studio 这类插件保存后会自动重载生效。
         <br />
@@ -190,7 +297,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
       {!loading && items.length === 0 ? (
         <div className="empty">
           <div className="empty-title">还没有插件</div>
-          <div className="empty-desc">用右上角按钮安装一个，或把插件目录放进插件目录后点「刷新」。</div>
+          <div className="empty-desc">用右上角按钮安装一个，或把插件 zip 放进插件目录后点「刷新」。</div>
         </div>
       ) : null}
 

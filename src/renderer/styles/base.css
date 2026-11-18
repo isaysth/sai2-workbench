@@ -185,6 +185,23 @@ body.is-dragging * {
   color: #fff;
 }
 
+/* 重启工作台（D-019 从插件中心搬到标题栏）：圆钮，不占满格高 */
+.win-btn.is-restart {
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  margin: 0 7px 0 2px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-3);
+}
+
+.win-btn.is-restart:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
 /* ------------------------------ 侧栏 ------------------------------ */
 .sidebar {
   flex: 1 1 auto;
@@ -504,6 +521,48 @@ body.is-dragging * {
   height: 27px;
   padding: 0 9px;
   font-size: 12px;
+}
+
+/* 分裂按钮（D-019）：主按钮 + 下拉三角贴合，只圆外侧两角 */
+.btn-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.btn-split > .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.btn-split > .btn:last-of-type {
+  padding: 0;
+  width: 22px;
+  justify-content: center;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  /* 叠掉 1px 边框，两半之间不出现双线 */
+  margin-left: -1px;
+  box-shadow: inset 1px 0 0 var(--border-strong);
+}
+
+.btn-split-toggle {
+  /* 尺寸/圆角见上一条（last-of-type）：三角钮比主按钮窄，但同高 */
+  flex: 0 0 auto;
+}
+
+/* 下拉层：复用 .context-menu 的外观，只把定位从 fixed 改成贴着按钮 */
+.context-menu.btn-split-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  min-width: 176px;
+}
+
+.btn-split-menu .context-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .icon-btn {

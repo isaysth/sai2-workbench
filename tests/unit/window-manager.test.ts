@@ -66,16 +66,27 @@ function fakeWindow(init: { destroyed?: boolean } = {}) {
 function makeManager(init: { destroyed?: boolean } = {}) {
   const win = fakeWindow(init)
   let trayItems: TrayMenuItem[] = []
+  let trayTooltip = ''
   let destroyed = 0
   const tray: TrayHandle = {
-    setItems: (items) => { trayItems = items },
+    setItems: (items, tooltip) => { trayItems = items; trayTooltip = tooltip ?? '' },
     destroy: () => { destroyed += 1 }
   }
   const broadcasts: Array<{ channel: string; payload: unknown }> = []
   let quits = 0
   let launches = 0
   let recreates = 0
+  let ballVisible = false
+  let ballShows = 0
+  let ballHides = 0
   let trayHandlers: { onActivate: () => void; onCommand: (id: string) => void } | null = null
+  const ball = {
+    show: () => { ballVisible = true; ballShows += 1 },
+    hide: () => { ballVisible = false; ballHides += 1 },
+    isVisible: () => ballVisible,
+    resetPosition: () => undefined,
+    dispose: () => undefined
+  }
   const wm = new WindowManager({
     log: fakeLogger(),
     createTray: (handlers) => {
@@ -85,17 +96,21 @@ function makeManager(init: { destroyed?: boolean } = {}) {
     workArea: () => ({ x: 0, y: 0, width: 1920, height: 1040 }),
     broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
     quit: () => { quits += 1 },
-    recreateWindow: () => { recreates += 1 }
+    recreateWindow: () => { recreates += 1 },
+    ball
   })
   wm.setLaunchHandler(() => { launches += 1 })
   wm.attach(win)
   return {
-    wm, win, tray, broadcasts,
+    wm, win, tray, broadcasts, ball,
     getItems: () => trayItems,
+    trayItemsTooltip: () => trayTooltip,
     getDestroyed: () => destroyed,
     getQuits: () => quits,
     getLaunches: () => launches,
     getRecreates: () => recreates,
+    getBallShows: () => ballShows,
+    getBallHides: () => ballHides,
     command: (id: string) => trayHandlers?.onCommand(id),
     activate: () => trayHandlers?.onActivate()
   }
@@ -140,21 +155,63 @@ describe('WindowManager 悬浮与托盘', () => {
     expect(m.wm.shouldKeepAlive()).toBe(true)
   })
 
-  it('进入悬浮窗保存原几何、缩小并置顶；退出后完整还原', () => {
+  it('进入球模式隐藏主窗口并显示球；退出后完整还原主窗口', () => {
     const m = makeManager()
-    m.wm.configure(() => ({ floatWidth: 320, floatHeight: 120, alwaysOnTop: true }))
+    m.wm.configure(() => ({ ballSize: 96, alwaysOnTop: true }))
+    const before = m.win.lastBounds()
+
     m.wm.enterFloat()
-    expect(m.win.lastBounds()).toMatchObject({ width: 320, height: 120, x: 1576, y: 24 })
-    expect(m.win.calls).toContain('min:0x0')
-    expect(m.win.calls).toContain('top:true:floating')
+    // 球模式不再缩主窗口，而是整窗隐藏 + 任务栏收起 + 球显示
+    expect(m.win.lastBounds()).toMatchObject(before)
+    expect(m.win.calls).toContain('hide')
+    expect(m.win.calls).toContain('taskbar:true')
+    expect(m.getBallShows()).toBe(1)
+    expect(m.ball.isVisible()).toBe(true)
     expect(m.wm.isFloat()).toBe(true)
     expect(m.broadcasts.at(-1)?.channel).toBe(CH.windowFloatChanged)
     expect((m.broadcasts.at(-1)?.payload as { active: boolean }).active).toBe(true)
+    expect(m.getItems().find((i) => i.id === 'float')?.label).toBe('展开主界面')
+    expect(m.trayItemsTooltip()).toBe('sai2工作台 · 球已浮起')
 
     m.wm.exitFloat()
+    expect(m.getBallHides()).toBe(1)
+    expect(m.ball.isVisible()).toBe(false)
+    expect(m.win.calls).toContain('taskbar:false')
+    expect(m.win.calls).toContain('show')
     expect(m.win.lastBounds()).toMatchObject({ x: 100, y: 80, width: 1360, height: 860 })
-    expect(m.win.calls).toContain('min:1040x640')
     expect(m.wm.isFloat()).toBe(false)
+    expect(m.getItems().find((i) => i.id === 'float')?.label).toBe('收成悬浮球')
+  })
+
+  it('窗口已销毁时点「收成悬浮球」：重建后自动进球，而不是停在普通窗口（N-027）', () => {
+    const m = makeManager({ destroyed: true })
+    m.wm.configure(() => ({}))
+    expect(m.getItems().find((i) => i.id === 'float')?.label).toBe('收成悬浮球')
+
+    m.command('float')
+    expect(m.getRecreates()).toBe(1)
+    // pendingBall 要等 attach 后消费；此时还没建新窗，球不会提前出现
+    expect(m.getBallShows()).toBe(0)
+
+    // 模拟主进程重建并 attach（真实链路里由 openMainWindow 完成）
+    const fresh = fakeWindow()
+    m.wm.attach(fresh)
+    expect(m.getBallShows()).toBe(1)
+    expect(m.ball.isVisible()).toBe(true)
+    expect(m.wm.isFloat()).toBe(true)
+    expect(fresh.calls).toContain('hide')
+  })
+
+  it('球浮着时点托盘「显示主窗口」= 展开，不会留下球+窗口两套界面', () => {
+    const m = makeManager()
+    m.wm.configure(() => ({}))
+    m.wm.enterFloat()
+    expect(m.ball.isVisible()).toBe(true)
+
+    m.activate()
+    expect(m.wm.isFloat()).toBe(false)
+    expect(m.getBallHides()).toBe(1)
+    expect(m.ball.isVisible()).toBe(false)
   })
 
   it('关闭按钮在 closeToTray 下被拦截，quit 时放行', () => {

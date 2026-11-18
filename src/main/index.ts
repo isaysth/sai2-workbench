@@ -8,6 +8,7 @@ import { AppDb } from './db'
 import { FileStore } from './db/files'
 import { MetaStore } from './db/meta'
 import { FilesIndex } from './files'
+import { FloatBall, registerBallIpc } from './float-ball'
 import { registerAppIpc } from './ipc/app.ipc'
 import { registerConfigIpc } from './ipc/config.ipc'
 import { registerDataIpc } from './ipc/data.ipc'
@@ -33,6 +34,12 @@ import { imageProvider, psdProvider, sai2Provider } from './thumbs/providers'
 import { createNativeTray } from './tray'
 import { WindowManager } from './window-manager'
 import { createMainWindow } from './window'
+
+/**
+ * 当前主窗口引用。关窗后重建会换引用，必须用可变量；
+ * 另外 second-instance 只把焦点给主窗口，不能误抓悬浮球那独立小窗。
+ */
+let currentWin: BrowserWindow | null = null
 
 /**
  * 增量升级的收尾：扫程序目录下的 `.patch-*`。
@@ -122,23 +129,39 @@ async function bootstrap(): Promise<void> {
   if (rendererUrl) log.info('app', `渲染进程开发服务器：${rendererUrl}`)
 
   // 主窗口只在启动时建一次的话，关窗后进程被托盘保活、菜单却点不动；
-  // 所以抽成函数交给窗口管理器按需重建，窗口引用也必须可换（currentWin）。
-  let currentWin: BrowserWindow | null = null
+  // 所以抽成函数交给窗口管理器按需重建，窗口引用也必须可换（currentWin 在模块级）。
   const openMainWindow = (): void => {
     currentWin = createMainWindow({ config, log, rendererUrl })
     wm.attach(currentWin)
   }
 
+  // 悬浮球：独立圆窗。直径走插件配置（WindowManager.options 已夹到 48~160）。
+  // size() 闭包会读 wm.options()，所以要显式标注类型打破 TS 的循环推断
+  // （ball 依赖 wm 的类型、wm 的 deps 又含 ball）。运行时 size() 只在球显示时才调用。
+  const ball: FloatBall = new FloatBall({
+    config,
+    log,
+    paths,
+    preloadPath: join(__dirname, '../preload/index.js'),
+    workArea: () => screen.getPrimaryDisplay().workArea,
+    workAreas: () => screen.getAllDisplays().map((d) => d.workArea),
+    size: (): number => wm.options().ballSize
+  })
+
   // 窗口管理器独立于插件存在：即使插件没激活，标题栏的窗口按钮也要能用。
   // 托盘、悬浮、最小化行为由 launcher-float 插件通过 configure 注入配置。
-  const wm = new WindowManager({
+  const wm: WindowManager = new WindowManager({
     log,
     createTray: createNativeTray,
     workArea: () => screen.getPrimaryDisplay().workArea,
     broadcast: (channel, payload) => broadcast(channel, payload),
     quit: () => app.quit(),
-    recreateWindow: openMainWindow
+    recreateWindow: openMainWindow,
+    ball
   })
+
+  // 球的交互与右键菜单独立注册，不进 app.ipc（那是主窗口的窗口控制）
+  registerBallIpc({ ball, wm, config, log, quit: () => app.quit() })
 
   // 重启用户主动触发（装插件后用）：先关监听关库再拉起进程，避免留下 -wal。
   // 具体实现落在下面 registerDataIpc 处（那里本来就要 shutdown），复用同一份。
@@ -410,7 +433,8 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    const [win] = BrowserWindow.getAllWindows()
+    // 只认主窗口：球虽是独立窗，但也在 getAllWindows() 里，拿第一个会误抓到球
+    const win = currentWin && !currentWin.isDestroyed() ? currentWin : null
     if (win) {
       if (win.isMinimized()) win.restore()
       if (!win.isVisible()) win.show()
