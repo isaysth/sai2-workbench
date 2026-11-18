@@ -12,6 +12,7 @@ import type {
   FloatModeState,
   IndexProgress,
   LogEntry,
+  OpenerKey,
   OpenerView,
   Project,
   ProjectFile,
@@ -43,7 +44,10 @@ declare global {
       cancelBackground(pending: string): Promise<{ ok: boolean }>
       clearBackground(name: string): Promise<{ ok: boolean }>
       launch(file?: string, openerId?: string): Promise<{ ok: boolean; error?: string; openerId?: string }>
-      openers(): Promise<OpenerView[]>
+      openers: {
+        list(): Promise<OpenerView[]>
+        detect(key: OpenerKey): Promise<{ ok: boolean; paths: string[]; error?: string }>
+      }
       openWith(path: string, openerId?: string): Promise<{ ok: boolean; error?: string; openerId?: string }>
       pickFile(filter: 'exe' | 'dir' | 'file', multi?: boolean): Promise<{ ok: boolean; canceled?: boolean; paths: string[] }>
       theme: {

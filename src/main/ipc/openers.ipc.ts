@@ -5,11 +5,17 @@
 import { spawn } from 'node:child_process'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { CH } from '@shared/channels'
+import type { OpenerKey } from '@shared/types'
 import type { ConfigStore } from '../config'
 import type { Logger } from '../logger'
+import { candidateRoots, findInstallCandidates } from '../openers/detect'
 import type { OpenersService } from '../openers/service'
 
 const EXE_FILTERS = [{ name: '可执行程序', extensions: ['exe'] }, { name: '所有文件', extensions: ['*'] }]
+
+function isOpenerKey(value: unknown): value is OpenerKey {
+  return value === 'sai2' || value === 'ps' || value === 'csp'
+}
 
 export interface OpenersIpcDeps {
   openers: OpenersService
@@ -56,9 +62,26 @@ export function registerOpenersIpc(deps: OpenersIpcDeps): void {
     return { ok: true, paths: picked.filePaths }
   })
 
+  /**
+   * 自动查找安装路径：从环境变量派生的常见根目录里按 exe 名找。
+   * 查找本身不抛异常，这里再兜一层，保证渲染端永远拿到 {ok, paths}。
+   */
+  ipcMain.handle(CH.openersDetect, (_event, payload: unknown) => {
+    const key: unknown = typeof payload === 'string' ? payload : (payload as { key?: unknown } | null)?.key
+    if (!isOpenerKey(key)) return { ok: false, paths: [], error: '未知的打开器' }
+    try {
+      const paths = findInstallCandidates(key, candidateRoots())
+      log.info('openers', `自动查找 ${key}：命中 ${paths.length} 个`)
+      return { ok: true, paths }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      log.warn('openers', `自动查找 ${key} 失败：${reason}`)
+      return { ok: false, paths: [], error: '自动查找失败' }
+    }
+  })
+
   // 让插件也能拿到 spawn 能力：ctx.shell.launch 走这里，统一 detached + unref。
   // 不开 shell:true —— 参数数组直接交给 spawn，不经过命令行解释器，避免注入。
-  void log
 }
 
 /** 真实 runner：detached + unref，关掉工作台不会连带关掉画图程序 */

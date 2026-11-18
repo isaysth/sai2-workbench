@@ -10,6 +10,7 @@ import type {
   FloatModeState,
   IndexProgress,
   LogEntry,
+  OpenerKey,
   OpenerView,
   Project,
   ProjectFile,
@@ -75,7 +76,13 @@ const api = {
   /** 启动默认打开器；带 file 时按扩展名选，openerId 指定时用指定打开器 */
   launch: (file?: string, openerId?: string): Promise<{ ok: boolean; error?: string; openerId?: string }> =>
     ipcRenderer.invoke(CH.appLaunch, { file, openerId }),
-  openers: (): Promise<OpenerView[]> => ipcRenderer.invoke(CH.appOpeners),
+  openers: {
+    /** 当前所有打开器的状态 */
+    list: (): Promise<OpenerView[]> => ipcRenderer.invoke(CH.appOpeners),
+    /** 自动查找安装路径；返回空数组表示没找到，需要手动指定 */
+    detect: (key: OpenerKey): Promise<{ ok: boolean; paths: string[]; error?: string }> =>
+      ipcRenderer.invoke(CH.openersDetect, key)
+  },
   openWith: (path: string, openerId?: string): Promise<{ ok: boolean; error?: string; openerId?: string }> =>
     ipcRenderer.invoke(CH.appOpenWith, { path, openerId }),
   /** 系统选择框：exe / dir / file；multi 只对公司生效 */

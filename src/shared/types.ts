@@ -147,6 +147,9 @@ export interface ThumbCacheStats {
   maxBytes: number
 }
 
+/** 三个内置打开器的配置键 */
+export type OpenerKey = 'sai2' | 'ps' | 'csp'
+
 /** 打开器配置：三个内置插件各一格。 */
 export interface OpenerConfig {
   path: string

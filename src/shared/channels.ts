@@ -29,6 +29,8 @@ export const CH = {
   appOpenWith: 'app:open-with',
   /** 系统选择框：选可执行文件 / 目录 / 任意文件 */
   appPickFile: 'app:pick-file',
+  /** 自动查找某个打开器的安装路径（入参 sai2 / ps / csp） */
+  openersDetect: 'openers:detect',
 
   /** 当前主题变量表（插件贡献 + 内核默认） */
   themeGet: 'theme:get',

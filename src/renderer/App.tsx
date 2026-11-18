@@ -125,7 +125,7 @@ export default function App(): ReactElement {
     // 插件状态与动态页面由主进程推送
     usePlugins.getState().init()
     // 打开器列表：侧栏文案与「是否已配置」都从注册表取，不再硬编码
-    void window.api.openers().then(setOpeners)
+    void window.api.openers.list().then(setOpeners)
     // 主题变量：一次性拉当前值，之后插件改动走事件
     void window.api.theme.get().then(setThemeVars)
     const offTheme = window.api.theme.onChanged(setThemeVars)
@@ -237,7 +237,7 @@ export default function App(): ReactElement {
         return
       }
       showToast(`已启动${res.openerId ? ` ${res.openerId.replace('opener-', '').toUpperCase()}` : '画图程序'}`)
-      void window.api.openers().then(setOpeners)
+      void window.api.openers.list().then(setOpeners)
     })
   }
 
@@ -276,7 +276,7 @@ export default function App(): ReactElement {
         />
 
         <main className="content">
-          {renderPage(page, { runtime, config, goto, toast: showToast, updateConfig, openers, doLaunch, refreshOpeners: () => void window.api.openers().then(setOpeners) }, pluginPages)}
+          {renderPage(page, { runtime, config, goto, toast: showToast, updateConfig, openers, doLaunch, refreshOpeners: () => void window.api.openers.list().then(setOpeners) }, pluginPages)}
         </main>
 
         <div
