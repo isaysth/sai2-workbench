@@ -258,3 +258,29 @@ export interface FloatModeState {
   width: number
   height: number
 }
+
+/** 导出数据备份的结果（设置页「备份数据」按钮） */
+export interface DataBackupResult {
+  ok: boolean
+  /** 用户在另存对话框里取消 */
+  canceled?: boolean
+  error?: string
+  /** 生成的文件绝对路径 */
+  file?: string
+  bytes?: number
+  /** 包内文件条数 */
+  entries?: number
+}
+
+/** 恢复数据备份的结果（设置页「从备份恢复」按钮） */
+export interface DataRestoreResult {
+  ok: boolean
+  canceled?: boolean
+  error?: string
+  /** 落盘成功的条目数 */
+  restored?: number
+  /** 旧数据的留底后缀，如 .bak-20261118-095500 */
+  asideSuffix?: string
+  /** 恢复成功后程序会自动重启 */
+  restarting?: boolean
+}

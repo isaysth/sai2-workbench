@@ -159,6 +159,39 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
     }
   }
 
+  /** 备份：主进程弹另存框 + 打包，这里只负责按钮状态与结果提示 */
+  const backupData = async (): Promise<void> => {
+    setBusy('backup')
+    try {
+      const res = await window.api.data.export()
+      if (res.canceled) return
+      if (!res.ok) {
+        toast(res.error ?? '备份失败')
+        return
+      }
+      const mb = ((res.bytes ?? 0) / 1024 / 1024).toFixed(1)
+      toast(`已备份 ${res.entries ?? 0} 个文件（${mb} MB），存到你选的位置了`)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  /** 恢复：二次确认在主进程弹，成功后主进程会自动重启，这里只提示 */
+  const restoreData = async (): Promise<void> => {
+    setBusy('restore')
+    try {
+      const res = await window.api.data.import()
+      if (res.canceled) return
+      if (!res.ok) {
+        toast(res.error ?? '恢复失败')
+        return
+      }
+      toast(`已恢复 ${res.restored ?? 0} 项数据，程序马上重启`)
+    } finally {
+      setBusy('')
+    }
+  }
+
   const preview = (nextAlpha: number, nextBlur: number): void => {
     const root = document.documentElement
     root.style.setProperty('--glass-alpha', String(nextAlpha))
@@ -706,6 +739,36 @@ export function SettingsPage({ runtime, config, updateConfig, toast, goto }: Set
               去插件中心配置
             </button>
           </div>
+        </section>
+
+        <section className="setting-card">
+          <div className="setting-card-head">
+            <span className="setting-card-title">数据备份</span>
+            <span className="setting-card-note">配置、标签、项目、背景图、自制插件</span>
+          </div>
+          <span className="setting-card-note">
+            换电脑、换安装位置，或者不小心删了数据目录时用。备份是一个 zip，通常几百 KB 到几 MB
+            —— 缩略图缓存和日志不会打进去，那些能重新生成，打进去只会让文件白白变大。
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', marginTop: 8, flexWrap: 'wrap' }}>
+            <button className="btn is-sm" disabled={busy === 'backup'} onClick={() => void backupData()}>
+              {busy === 'backup' ? '正在打包…' : '备份数据'}
+            </button>
+            <button
+              className="btn is-sm is-ghost"
+              disabled={busy === 'restore'}
+              onClick={() => void restoreData()}
+            >
+              {busy === 'restore' ? '正在恢复…' : '从备份恢复'}
+            </button>
+            <button className="btn is-sm is-ghost" onClick={() => void window.api.data.openDir()}>
+              打开数据目录
+            </button>
+          </div>
+          <span className="setting-card-note">
+            恢复会用备份替换当前的索引与设置，现有数据自动改名留底（后缀 <code>.bak-时间</code>），
+            不会直接删除；画布原文件不受影响。恢复完成后程序会自动重启。
+          </span>
         </section>
 
         <section className="setting-card">

@@ -83,6 +83,13 @@ export const CH = {
   /** 清空缩略图缓存 */
   thumbsClear: 'thumbs:clear',
 
+  /** 导出数据备份（配置 + 索引库 + 背景图 + 用户插件）为一个 zip */
+  dataExport: 'data:export',
+  /** 从备份 zip 恢复数据（恢复后自动重启程序） */
+  dataImport: 'data:import',
+  /** 打开数据目录（无入参，主进程锁死为 dataDir） */
+  dataOpenDir: 'data:open-dir',
+
   /** 插件清单（含状态与配置 schema） */
   pluginList: 'plugin:list',
   /** 从文件夹或 zip 安装插件，payload = { mode: 'folder' | 'zip' } */

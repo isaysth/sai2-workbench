@@ -9,6 +9,7 @@ import { MetaStore } from './db/meta'
 import { FilesIndex } from './files'
 import { registerAppIpc } from './ipc/app.ipc'
 import { registerConfigIpc } from './ipc/config.ipc'
+import { registerDataIpc } from './ipc/data.ipc'
 import { broadcastProgress, registerFilesIpc } from './ipc/files.ipc'
 import { registerLogIpc } from './ipc/log.ipc'
 import { registerOpenersIpc, spawnDetached } from './ipc/openers.ipc'
@@ -197,6 +198,22 @@ async function bootstrap(): Promise<void> {
   const filesIpc = registerFilesIpc({ index, config, thumbs, log })
   changeSink = filesIpc.onChange
   registerTagsIpc({ meta, store, index, log })
+
+  // 数据备份 / 恢复：恢复前必须停掉监听并关库，否则 Windows 上 index.db 改名会失败
+  registerDataIpc({
+    paths,
+    log,
+    version: app.getVersion(),
+    counts: () => {
+      const stat = db.stats()
+      return { files: stat.files, tags: stat.tags, projects: stat.projects }
+    },
+    shutdown: async () => {
+      log.info('backup', '恢复数据前停用索引：关闭目录监听并关库')
+      await index.stop()
+      db.close()
+    }
+  })
 
   serveImageProtocol({
     backgroundDir: paths.backgroundDir,

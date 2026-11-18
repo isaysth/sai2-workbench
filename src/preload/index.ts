@@ -3,6 +3,8 @@ import { CH } from '@shared/channels'
 import type {
   AppConfig,
   AutoTagRule,
+  DataBackupResult,
+  DataRestoreResult,
   FileChangeEvent,
   FileMetaEvent,
   FloatModeState,
@@ -199,6 +201,14 @@ const api = {
     stats: (): Promise<ThumbCacheStats> => ipcRenderer.invoke(CH.thumbsStats),
     clear: (): Promise<{ ok: boolean; removed?: number; freed?: number }> =>
       ipcRenderer.invoke(CH.thumbsClear)
+  },
+
+  /** 数据备份 / 恢复：备份是配置 + 索引库 + 背景图 + 用户插件，不含可重建的缩略图缓存 */
+  data: {
+    export: (): Promise<DataBackupResult> => ipcRenderer.invoke(CH.dataExport),
+    import: (): Promise<DataRestoreResult> => ipcRenderer.invoke(CH.dataImport),
+    /** 打开固定数据目录（无入参，主进程锁死路径） */
+    openDir: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(CH.dataOpenDir)
   },
 
   /** 插件中心：列表 / 装卸 / 配置（M3a） */

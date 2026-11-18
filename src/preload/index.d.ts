@@ -5,6 +5,8 @@
 import type {
   AppConfig,
   AutoTagRule,
+  DataBackupResult,
+  DataRestoreResult,
   FileChangeEvent,
   FileMetaEvent,
   FloatModeState,
@@ -105,6 +107,11 @@ declare global {
       thumbs: {
         stats(): Promise<ThumbCacheStats>
         clear(): Promise<{ ok: boolean; removed?: number; freed?: number }>
+      }
+      data: {
+        export(): Promise<DataBackupResult>
+        import(): Promise<DataRestoreResult>
+        openDir(): Promise<{ ok: boolean; error?: string }>
       }
       plugins: {
         list(): Promise<PluginSnapshotPayload>

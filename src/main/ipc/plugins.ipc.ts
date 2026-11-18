@@ -3,14 +3,14 @@
  * zip 解压只允许相对路径，拒绝 ../ 与绝对路径穿越。
  */
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, watch } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, watch } from 'node:fs'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import yauzl from 'yauzl'
 import { CH } from '@shared/channels'
 import type { PluginResult } from '@shared/plugins'
 import type { Logger } from '../logger'
 import { readManifest } from '../plugins/manifest'
+import { extractZip } from '../plugins/zip-extract'
 import { pickPromptableZips, scanZipDir, validateZipPath } from '../plugins/zip-discovery'
 import { broadcast } from './broadcast'
 import type { PluginSystem } from '../plugins'
@@ -23,67 +23,6 @@ export interface PluginsIpcDeps {
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
-}
-
-function safeZipName(name: string): boolean {
-  if (!name || name.startsWith('/') || name.startsWith('\\')) return false
-  if (/^[A-Za-z]:/.test(name)) return false
-  return !name.split(/[\\/]/).includes('..')
-}
-
-function extractZip(zipPath: string, targetDir: string): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipFile) => {
-      if (err || !zipFile) {
-        reject(err ?? new Error('无法打开 zip 文件'))
-        return
-      }
-      let done = false
-      const finish = (failure?: Error): void => {
-        if (done) return
-        done = true
-        zipFile.close()
-        if (failure) reject(failure)
-        else resolve()
-      }
-      zipFile.on('error', (e) => finish(e))
-      zipFile.on('end', () => finish())
-      zipFile.readEntry()
-      zipFile.on('entry', (entry: yauzl.Entry) => {
-        if (!safeZipName(entry.fileName)) {
-          finish(new Error(`zip 内存在非法路径：${entry.fileName}`))
-          return
-        }
-        const full = join(targetDir, entry.fileName)
-        if (entry.fileName.endsWith('/')) {
-          try {
-            mkdirSync(full, { recursive: true })
-            zipFile.readEntry()
-          } catch (e) {
-            finish(e instanceof Error ? e : new Error(String(e)))
-          }
-          return
-        }
-        zipFile.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream) {
-            finish(streamErr ?? new Error(`读取 zip 条目失败：${entry.fileName}`))
-            return
-          }
-          try {
-            mkdirSync(dirname(full), { recursive: true })
-          } catch (e) {
-            finish(e instanceof Error ? e : new Error(String(e)))
-            return
-          }
-          const out = createWriteStream(full)
-          stream.on('error', (e) => finish(e))
-          out.on('error', (e) => finish(e))
-          out.on('finish', () => zipFile.readEntry())
-          stream.pipe(out)
-        })
-      })
-    })
-  })
 }
 
 /** 找 zip 内的插件根目录（允许外面套一层文件夹） */
