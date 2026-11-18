@@ -32,8 +32,8 @@
 
 ## 三、插件开发
 
-> **SAI2 FX Studio 官方功能插件（独立项目）**：`C:\Users\11421\Documents\sai2工作台\sai2-fx-studio\`，有自己的源码、文档、构建与发版。
-> **sai2-window-float 官方悬浮窗插件（独立项目）**：`C:\Users\11421\Documents\sai2工作台\sai2-window-float\`，同上。
+> **SAI2 FX Studio 官方功能插件（独立项目）**：`sai2-fx-studio\`（与本仓库平级），有自己的源码、文档、构建与发版。
+> **sai2-window-float 官方悬浮窗插件（独立项目）**：`sai2-window-float\`（与本仓库平级），同上。
 > 本工作台只维护插件 API 与插件中心，不再承载任何具体插件的细节。
 
 插件是一段本地可信代码，主进程直接加载（**安装即授权**，无进程级沙箱——只装你信任的插件）。
