@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ActionView, PluginInfo, PluginPageContribution, PluginSnapshotPayload, PluginStatusView } from '@shared/plugins'
+import type { ActionView, PluginInfo, PluginPageContribution, PluginResult, PluginSnapshotPayload, PluginStatusView } from '@shared/plugins'
 
 /**
  * 插件中心的前端状态。
@@ -23,6 +23,8 @@ interface PluginsStore {
   reload: (id: string) => Promise<void>
   uninstall: (id: string) => Promise<void>
   install: (mode: 'folder' | 'zip') => Promise<void>
+  openDir: () => Promise<boolean>
+  installZipPath: (zipPath: string) => Promise<PluginResult & { id?: string }>
   bumpConfig: () => void
 }
 
@@ -98,6 +100,13 @@ export const usePlugins = create<PluginsStore>((set, get) => ({
       set({ items: get().items.map((p) => (p.id === res.id ? { ...p, error: res.error } : p)) })
     }
   },
+
+  openDir: async () => {
+    const res = await window.api.plugins.openDir()
+    return res.ok
+  },
+
+  installZipPath: (zipPath) => window.api.plugins.installZipPath(zipPath),
 
   bumpConfig: () => set((s) => ({ configRevision: s.configRevision + 1 }))
 }))

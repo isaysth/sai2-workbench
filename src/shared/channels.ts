@@ -96,6 +96,12 @@ export const CH = {
   /** 读 / 写某个插件的配置 */
   pluginGetConfig: 'plugin:get-config',
   pluginSetConfig: 'plugin:set-config',
+  /** 打开固定插件目录（无入参，主进程锁死为 pluginDir） */
+  pluginOpenDir: 'plugin:open-dir',
+  /** 按给定 zip 路径安装（校验后在 pluginDir 内，复用 zip 安装核心） */
+  pluginInstallZipPath: 'plugin:install-zip-path',
+  /** 发现新 zip 安装包（主进程 → 渲染端，payload = zip 绝对路径数组） */
+  pluginZipFound: 'plugin:zip-found',
   /** 插件状态或贡献点变化（主进程 → 渲染端） */
   pluginChanged: 'plugin:changed',
   /** 触发插件注册的菜单 / 工具栏动作 */

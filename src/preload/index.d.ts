@@ -109,6 +109,8 @@ declare global {
       plugins: {
         list(): Promise<PluginSnapshotPayload>
         install(mode: 'folder' | 'zip'): Promise<PluginResult & { id?: string }>
+        openDir(): Promise<{ ok: boolean; error?: string }>
+        installZipPath(zipPath: string): Promise<PluginResult & { id?: string }>
         uninstall(id: string): Promise<PluginResult>
         setEnabled(id: string, enabled: boolean): Promise<PluginResult>
         reload(id: string): Promise<PluginResult>
@@ -116,6 +118,7 @@ declare global {
         setConfig(id: string, value: Record<string, unknown>): Promise<PluginResult>
         runAction(kind: 'file' | 'toolbar', id: string, path?: string): Promise<PluginResult>
         onChanged(cb: (payload: PluginSnapshotPayload) => void): () => void
+        onZipFound(cb: (paths: string[]) => void): () => void
       }
     }
   }

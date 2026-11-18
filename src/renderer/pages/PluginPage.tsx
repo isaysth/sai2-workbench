@@ -34,11 +34,33 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
   const reload = usePlugins((s) => s.reload)
   const uninstall = usePlugins((s) => s.uninstall)
   const install = usePlugins((s) => s.install)
+  const openDir = usePlugins((s) => s.openDir)
+  const installZipPath = usePlugins((s) => s.installZipPath)
+  const load = usePlugins((s) => s.load)
 
   const [draft, setDraft] = useState<Record<string, unknown>>({})
   const [dirty, setDirty] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; plugin: PluginInfo } | null>(null)
   const selected = items.find((p) => p.id === selectedId) ?? null
+
+  // 目录里发现新 zip → 询问是否安装；确定后逐个装，结果用 toast 汇总
+  useEffect(() => {
+    return window.api.plugins.onZipFound((paths: string[]) => {
+      if (!Array.isArray(paths) || paths.length === 0) return
+      const names = paths.map((p) => p.split(/[\\/]/).pop() ?? p)
+      const label = names.length === 1 ? names[0] : names.join('、')
+      const yes = window.confirm(`发现插件安装包：${label}\n\n是否立即安装？`)
+      if (!yes) return // 本次会话不再提示（主进程已记入 seen）
+      void (async () => {
+        for (const path of paths) {
+          const res = await installZipPath(path)
+          if (res.ok) onToast(`已安装插件 ${res.id ?? ''}`.trim())
+          else onToast(`安装失败：${res.error ?? '未知原因'}`)
+        }
+        await load()
+      })()
+    })
+  }, [installZipPath, load, onToast])
 
   useEffect(() => {
     if (!selectedId) {
@@ -122,24 +144,30 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
           </p>
         </div>
         <div className="plugin-head-actions">
+          <button
+            className="btn is-sm is-primary"
+            onClick={() => void openDir().then((ok) => onToast(ok ? '已打开插件目录，把 zip 放进去即可' : '打开插件目录失败'))}
+          >
+            打开插件目录
+          </button>
           <button className="btn is-sm" onClick={() => void doInstall('folder')}>从文件夹安装</button>
           <button className="btn is-sm" onClick={() => void doInstall('zip')}>从 zip 安装</button>
-          <button className="btn is-sm is-ghost" onClick={() => void usePlugins.getState().load()}>刷新</button>
+          <button className="btn is-sm is-ghost" onClick={() => void load()}>刷新</button>
         </div>
       </div>
 
       <div className="plugin-notice">
         <b>使用说明</b>
         <br />
-        ① 点右上角「从 zip 安装」或「从文件夹安装」添加插件，安装后自动启用；也可把插件目录放进插件目录后点「刷新」。
+        ① 推荐：点右上角「打开插件目录」，把插件 zip 丢进去，工作台会自动发现并询问是否安装（确定即装）；也可点「刷新」重新扫描。
         <br />
-        ② 在左侧列表点选一个插件查看状态、说明与配置；右键列表项可快速启用/禁用、重载、复制 ID 或卸载。
+        ② 传统方式：「从 zip 安装」/「从文件夹安装」手动选择；安装后自动启用。已安装插件的同名 zip 不再重复询问。
         <br />
-        ③ 改完配置记得点「保存配置」；FX Studio 这类插件保存后会自动重载生效。
+        ③ 在左侧列表点选一个插件查看状态、说明与配置；右键列表项可快速启用/禁用、重载、复制 ID 或卸载。
         <br />
-        ④ 内置插件不能卸载，系统插件不能禁用。写坏的插件会被隔离到「加载失败」，不会影响主程序。
+        ④ 改完配置记得点「保存配置」；FX Studio 这类插件保存后会自动重载生效。
         <br />
-        ⑤ 「启动悬浮窗」在这里配置：选中它即可设置 SAI2 启动后自动小窗、最小化/关闭到托盘。
+        ⑤ 内置插件不能卸载，系统插件不能禁用。写坏的插件会被隔离到「加载失败」，不会影响主程序。
         <br />
         <span className="plugin-notice-warn">
           安全提示：插件是本地可信代码，主进程直接加载 —— 安装即授权。请只安装你信任的插件，本程序无法做到进程级隔离。

@@ -207,6 +207,11 @@ const api = {
       ipcRenderer.invoke(CH.pluginList),
     install: (mode: 'folder' | 'zip'): Promise<PluginResult & { id?: string }> =>
       ipcRenderer.invoke(CH.pluginInstall, mode),
+    /** 打开固定插件目录（无入参，主进程锁死路径） */
+    openDir: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(CH.pluginOpenDir),
+    /** 按 zip 绝对路径安装（路径须在插件目录内，主进程校验） */
+    installZipPath: (zipPath: string): Promise<PluginResult & { id?: string }> =>
+      ipcRenderer.invoke(CH.pluginInstallZipPath, zipPath),
     uninstall: (id: string): Promise<PluginResult> => ipcRenderer.invoke(CH.pluginUninstall, id),
     setEnabled: (id: string, enabled: boolean): Promise<PluginResult> =>
       ipcRenderer.invoke(CH.pluginSetEnabled, { id, enabled }),
@@ -221,6 +226,12 @@ const api = {
       const handler = (_e: unknown, payload: PluginSnapshotPayload): void => cb(payload)
       ipcRenderer.on(CH.pluginChanged, handler)
       return () => ipcRenderer.off(CH.pluginChanged, handler)
+    },
+    /** 目录里发现新 zip 安装包（主进程 → 渲染端，payload = zip 绝对路径数组） */
+    onZipFound: (cb: (paths: string[]) => void): (() => void) => {
+      const handler = (_e: unknown, paths: string[]): void => cb(paths)
+      ipcRenderer.on(CH.pluginZipFound, handler)
+      return () => ipcRenderer.off(CH.pluginZipFound, handler)
     }
   }
 }
