@@ -54,8 +54,10 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
       void (async () => {
         for (const path of paths) {
           const res = await installZipPath(path)
-          if (res.ok) onToast(`已安装插件 ${res.id ?? ''}`.trim())
-          else onToast(`安装失败：${res.error ?? '未知原因'}`)
+          if (res.ok) {
+            const id = res.id ? ` ${res.id}` : ''
+            onToast(`已安装插件${id}，若界面没变化请点「重启工作台」`)
+          } else onToast(`安装失败：${res.error ?? '未知原因'}`)
         }
         await load()
       })()
@@ -84,6 +86,13 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
     onToast(mode === 'zip' ? '已处理 zip 安装包' : '已处理插件目录')
   }
 
+  /** 重启要用户确认一次：没保存的配置 / 正在跑的任务都会丢 */
+  const restartApp = async (): Promise<void> => {
+    if (!window.confirm('重启工作台？未保存的改动会丢失。')) return
+    const res = await window.api.app.restart()
+    onToast(res.ok ? '正在重启工作台…' : (res.error ?? '重启失败'))
+  }
+
   const save = async (): Promise<void> => {
     if (!selectedId) return
     const res = await window.api.plugins.setConfig(selectedId, draft)
@@ -106,13 +115,14 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
   const menuItems: MenuItem[] = menu
     ? (() => {
         const p = menu.plugin
-        const running = p.status === 'running'
+        // disabled 是「用户主动禁用」的唯一状态；waiting / failed 仍属启用中
+        const enabled = p.status !== 'disabled'
         const list: MenuItem[] = [
           {
             id: 'toggle',
-            label: running ? '禁用此插件' : '启用此插件',
+            label: enabled ? '禁用此插件' : '启用此插件',
             disabled: p.system,
-            onClick: () => void setEnabled(p.id, !running)
+            onClick: () => void setEnabled(p.id, !enabled)
           },
           { id: 'reload', label: '重新加载', onClick: () => void reload(p.id) },
           {
@@ -152,6 +162,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
           </button>
           <button className="btn is-sm" onClick={() => void doInstall('folder')}>从文件夹安装</button>
           <button className="btn is-sm" onClick={() => void doInstall('zip')}>从 zip 安装</button>
+          <button className="btn is-sm is-ghost" onClick={() => void restartApp()}>重启工作台</button>
           <button className="btn is-sm is-ghost" onClick={() => void load()}>刷新</button>
         </div>
       </div>
@@ -163,7 +174,7 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
         <br />
         ② 传统方式：「从 zip 安装」/「从文件夹安装」手动选择；安装后自动启用。已安装插件的同名 zip 不再重复询问。
         <br />
-        ③ 在左侧列表点选一个插件查看状态、说明与配置；右键列表项可快速启用/禁用、重载、复制 ID 或卸载。
+        ③ 在左侧列表点选一个插件查看状态、说明与配置；卡片右侧的开关可直接启用/禁用，系统插件（如内核服务）的开关为灰色不可点。右键列表项还可快速启用/禁用、重载、复制 ID 或卸载。
         <br />
         ④ 改完配置记得点「保存配置」；FX Studio 这类插件保存后会自动重载生效。
         <br />
@@ -186,18 +197,51 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
       <div className="plugin-layout">
         <div className="plugin-list">
           {items.map((p) => (
-            <button
+            <div
               key={p.id}
               className={`plugin-item${p.id === selectedId ? ' is-active' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={() => select(p.id)}
               onContextMenu={(e) => onItemContext(p, e)}
+              onKeyDown={(e) => {
+                // 焦点在开关上时，按键归开关自己（否则空格会选中卡片而不切换）
+                if (e.target !== e.currentTarget) return
+                if (e.key !== 'Enter' && e.key !== ' ') return
+                // 空格默认会滚页面
+                if (e.key === ' ') e.preventDefault()
+                select(p.id)
+              }}
               title="右键查看更多操作"
             >
-              <span className={`plugin-status plugin-status--${p.status}`}>{STATUS_TEXT[p.status] ?? p.status}</span>
-              <span className="plugin-item-name">{p.name}</span>
-              <span className="plugin-item-id">{p.id} · v{p.version}{p.source === 'builtin' ? ' · 内置' : ''}</span>
-              {p.error ? <span className="plugin-item-error">{p.error}</span> : null}
-            </button>
+              <div className="plugin-item-main">
+                <span className={`plugin-status plugin-status--${p.status}`}>{STATUS_TEXT[p.status] ?? p.status}</span>
+                <span className="plugin-item-name">{p.name}</span>
+                <span className="plugin-item-id">{p.id} · v{p.version}{p.source === 'builtin' ? ' · 内置' : ''}</span>
+                {p.error ? <span className="plugin-item-error">{p.error}</span> : null}
+              </div>
+              {(() => {
+                const enabled = p.status !== 'disabled'
+                return (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={enabled ? `禁用 ${p.name}` : `启用 ${p.name}`}
+                    title={p.system ? '系统插件不能禁用' : enabled ? '点击禁用' : '点击启用'}
+                    className={`plugin-switch${enabled ? ' is-on' : ''}`}
+                    disabled={p.system}
+                    onClick={(e) => {
+                      // 否则会顺带选中卡片、跳详情
+                      e.stopPropagation()
+                      void setEnabled(p.id, !enabled)
+                    }}
+                  >
+                    <span className="plugin-switch-dot" />
+                  </button>
+                )
+              })()}
+            </div>
           ))}
         </div>
 
@@ -216,9 +260,9 @@ export function PluginPage({ onToast, runtime, config, updateConfig, openers, re
                 <button
                   className="btn is-sm"
                   disabled={selected.system}
-                  onClick={() => void setEnabled(selected.id, selected.status !== 'running')}
+                  onClick={() => void setEnabled(selected.id, selected.status === 'disabled')}
                 >
-                  {selected.status === 'running' ? '禁用' : '启用'}
+                  {selected.status !== 'disabled' ? '禁用' : '启用'}
                 </button>
                 <button className="btn is-sm is-ghost" onClick={() => void reload(selected.id)}>重载</button>
                 <button

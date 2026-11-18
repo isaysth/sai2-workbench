@@ -30,6 +30,9 @@ declare global {
       windowAction(action: WindowAction): Promise<{ ok: boolean; error?: string }>
       onFloatChanged(cb: (state: FloatModeState) => void): () => void
       floatState(): Promise<FloatModeState>
+      app: {
+        restart(): Promise<{ ok: boolean; error?: string }>
+      }
       pickBackground(
         oldName: string
       ): Promise<{ ok: boolean; pending?: string; canceled?: boolean; error?: string }>

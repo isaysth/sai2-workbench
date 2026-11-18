@@ -25,6 +25,8 @@ export const CH = {
   appLaunch: 'app:launch',
   /** 当前所有打开器的状态（路径、是否可用、是否默认） */
   appOpeners: 'app:openers',
+  /** 重启工作台（装完插件 / 改完配置后用），主进程会先关库停监听再拉起进程 */
+  appRestart: 'app:restart',
   /** 用指定打开器打开指定文件 */
   appOpenWith: 'app:open-with',
   /** 系统选择框：选可执行文件 / 目录 / 任意文件 */

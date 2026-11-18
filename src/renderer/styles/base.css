@@ -2043,9 +2043,8 @@ body.is-dragging * {
 
 .plugin-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--divider);
   border-radius: 8px;
@@ -2056,6 +2055,16 @@ body.is-dragging * {
   font: inherit;
 }
 
+/* 名字区：允许长名字省略，不能把卡片撑破 */
+.plugin-item-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .plugin-item.is-active {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
@@ -2064,6 +2073,10 @@ body.is-dragging * {
 .plugin-item-name {
   font-weight: 600;
   font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plugin-item-id {
@@ -2089,6 +2102,46 @@ body.is-dragging * {
 .plugin-status--waiting { color: #a8780c; background: rgba(168, 120, 12, 0.12); }
 .plugin-status--failed { color: #d14343; background: rgba(209, 67, 67, 0.12); }
 .plugin-status--disabled { color: var(--text-3); }
+
+/* 卡片右侧的启用开关：轨道 30×17，圆点 13，is-on 时整条轨道用强调色 */
+.plugin-switch {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-track);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.plugin-switch-dot {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.plugin-switch.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.plugin-switch.is-on .plugin-switch-dot {
+  background: var(--on-accent);
+  transform: translateX(11px);
+}
+
+.plugin-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 .plugin-detail {
   padding: 14px;

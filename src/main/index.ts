@@ -97,7 +97,23 @@ async function bootstrap(): Promise<void> {
     recreateWindow: openMainWindow
   })
 
-  registerAppIpc(runtime, log, paths.backgroundDir, wm)
+  // 重启用户主动触发（装插件后用）：先关监听关库再拉起进程，避免留下 -wal。
+  // 具体实现落在下面 registerDataIpc 处（那里本来就要 shutdown），复用同一份。
+  let shutdownCore: (() => Promise<void>) | null = null
+
+  const restartApp = async (): Promise<void> => {
+    log.info('app', '准备重启工作台')
+    try {
+      await shutdownCore?.()
+    } catch (err) {
+      // 关库失败也必须继续重启，否则用户点了没反应
+      log.warn('app', `重启前清理失败，仍继续重启：${String(err)}`)
+    }
+    app.relaunch()
+    app.exit(0)
+  }
+
+  registerAppIpc(runtime, log, paths.backgroundDir, wm, { restart: restartApp })
   registerConfigIpc(config, log)
   registerLogIpc(log)
 
@@ -212,6 +228,12 @@ async function bootstrap(): Promise<void> {
   registerTagsIpc({ meta, store, index, log })
 
   // 数据备份 / 恢复：恢复前必须停掉监听并关库，否则 Windows 上 index.db 改名会失败
+  // 「重启工作台」也走这一份，不重复实现
+  shutdownCore = async (): Promise<void> => {
+    log.info('app', '停用索引：关闭目录监听并关库')
+    await index.stop()
+    db.close()
+  }
   registerDataIpc({
     paths,
     log,
@@ -220,11 +242,7 @@ async function bootstrap(): Promise<void> {
       const stat = db.stats()
       return { files: stat.files, tags: stat.tags, projects: stat.projects }
     },
-    shutdown: async () => {
-      log.info('backup', '恢复数据前停用索引：关闭目录监听并关库')
-      await index.stop()
-      db.close()
-    }
+    shutdown: shutdownCore
   })
 
   serveImageProtocol({

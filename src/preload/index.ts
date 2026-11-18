@@ -34,6 +34,11 @@ const api = {
   /** 当前悬浮窗状态（页面加载时补一次，之后靠事件推送） */
   floatState: (): Promise<FloatModeState> => ipcRenderer.invoke(CH.appFloatState),
 
+  app: {
+    /** 重启工作台：主进程先关库停监听再拉起进程，装完插件后用 */
+    restart: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(CH.appRestart)
+  },
+
   /** 悬浮窗状态推送（主进程 → 渲染端） */
   onFloatChanged: (cb: (state: FloatModeState) => void): (() => void) => {
     const handler = (_e: unknown, state: FloatModeState): void => cb(state)

@@ -36,11 +36,27 @@ function safeFileName(raw: unknown): string | null {
 }
 
 /** 运行环境查询 + 自定义标题栏窗口按钮 + 背景图导入 */
-export function registerAppIpc(runtime: RuntimeInfo, log: Logger, backgroundDir: string, wm: WindowManager): void {
+export function registerAppIpc(
+  runtime: RuntimeInfo,
+  log: Logger,
+  backgroundDir: string,
+  wm: WindowManager,
+  deps: { restart: () => Promise<void> }
+): void {
   sweepPending(backgroundDir, log)
 
   ipcMain.handle(CH.appRuntime, () => runtime)
   ipcMain.handle(CH.appFloatState, () => wm.state())
+
+  /**
+   * 重启工作台：先把返回值和 toast 送到渲染端，再延迟 300ms 真正拉起进程。
+   * 不能在 handler 里 await 重启 —— 进程会先死，渲染端拿不到响应。
+   */
+  ipcMain.handle(CH.appRestart, () => {
+    log.info('ipc', '用户请求重启工作台')
+    setTimeout(() => void deps.restart(), 300)
+    return { ok: true }
+  })
 
   ipcMain.handle(CH.appWindow, (event, action: WindowAction) => {
     const win = BrowserWindow.fromWebContents(event.sender)
