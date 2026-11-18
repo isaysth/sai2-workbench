@@ -2,6 +2,7 @@
 node_modules/
 out/
 dist/
+dist-*/
 *.tsbuildinfo
 
 # 运行时数据（不进仓库）
