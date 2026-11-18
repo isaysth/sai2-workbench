@@ -1,0 +1,11 @@
+{
+  "id": "float-guide",
+  "name": "悬浮能力说明",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "author": "内置",
+  "description": "悬浮能力已独立为官方插件 sai2-window-float，请在插件中心从 zip 安装。",
+  "entry": "index.js",
+  "system": false,
+  "permissions": []
+}
